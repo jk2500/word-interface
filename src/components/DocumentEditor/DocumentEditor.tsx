@@ -5,22 +5,63 @@ import { Toolbar } from './Toolbar'
 import { EditorContainer } from '../../styles/editor.styles'
 import { StorageService } from '../../services/storage'
 
+type TextAlign = 'left' | 'center' | 'right' | 'justify'
+
+interface CustomElement {
+  type: string
+  align?: TextAlign
+  children: Descendant[]
+}
+
+interface RenderElementProps {
+  element: CustomElement
+  attributes: Record<string, unknown>
+  children: React.ReactNode
+}
+
 export const DocumentEditor: React.FC = () => {
   const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState<Descendant[]>(() => {
-    return StorageService.loadDocument()
-  })
-  // Add state for current font
-  const [currentFont, setCurrentFont] = useState('')
+  const editorState = useMemo(() => StorageService.loadEditorState(), [])
+  const [value, setValue] = useState<Descendant[]>(editorState.content)
+  const [currentFont, setCurrentFont] = useState(editorState.currentFont)
 
-  // Memoize the change handler
   const handleChange = useCallback((newValue: Descendant[]) => {
     setValue(newValue)
-    StorageService.saveDocument(newValue)
+    StorageService.saveEditorState({
+      ...StorageService.loadEditorState(),
+      content: newValue
+    })
   }, [])
 
-  // Memoize render callbacks
-  const renderElement = useCallback((props: any) => {
+  const isFormatActive = useCallback((format: 'bold' | 'italic' | 'underline') => {
+    const marks = Editor.marks(editor)
+    return marks ? marks[format] === true : false
+  }, [editor])
+
+  const toggleFormat = useCallback((format: 'bold' | 'italic' | 'underline') => {
+    const isActive = isFormatActive(format)
+    if (isActive) {
+      Editor.removeMark(editor, format)
+    } else {
+      Editor.addMark(editor, format, true)
+    }
+    const state = StorageService.loadEditorState()
+    StorageService.saveEditorState({ ...state, content: value })
+  }, [editor, value, isFormatActive])
+
+  const toggleFont = useCallback((font: string) => {
+    setCurrentFont(font)
+    Editor.addMark(editor, 'font', font)
+    const state = StorageService.loadEditorState()
+    StorageService.saveEditorState({ ...state, currentFont: font })
+  }, [editor])
+
+  const getCurrentFont = useCallback(() => {
+    const marks = Editor.marks(editor)
+    return currentFont || marks?.font || ''
+  }, [editor, currentFont])
+
+  const renderElement = useCallback((props: RenderElementProps) => {
     switch (props.element.type) {
       case 'paragraph':
         return (
@@ -56,26 +97,10 @@ export const DocumentEditor: React.FC = () => {
     return <span {...props.attributes}>{children}</span>
   }, [])
 
-  const toggleFormat = (format: 'bold' | 'italic' | 'underline') => {
-    const isActive = isFormatActive(format)
-    Editor.addMark(editor, format, !isActive)
-  }
-
-  const isFormatActive = (format: 'bold' | 'italic' | 'underline') => {
-    const marks = Editor.marks(editor)
-    return marks ? marks[format] === true : false
-  }
-
-  // Update toggleFont to maintain font state
-  const toggleFont = (font: string) => {
-    setCurrentFont(font)
-    Editor.addMark(editor, 'font', font)
-  }
-
-  // Update getCurrentFont to use state
-  const getCurrentFont = () => {
-    return currentFont || Editor.marks(editor)?.font || ''
-  }
+  const editorStyle = useMemo(() => ({
+    fontFamily: getCurrentFont() || 'inherit',
+    minHeight: '100%'
+  }), [getCurrentFont])
 
   return (
     <EditorContainer>
@@ -98,11 +123,7 @@ export const DocumentEditor: React.FC = () => {
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           placeholder="Start typing..."
-          style={{ 
-            fontFamily: getCurrentFont() || 'inherit',
-            // Add a min-height to ensure placeholder is visible
-            minHeight: '100%'
-          }}
+          style={editorStyle}
         />
       </Slate>
     </EditorContainer>

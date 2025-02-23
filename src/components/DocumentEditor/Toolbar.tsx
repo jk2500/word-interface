@@ -17,7 +17,7 @@ interface ToolbarProps {
   currentFont: string
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({
+export const Toolbar = React.memo<ToolbarProps>(({
   onToggleBold,
   onToggleItalic,
   onToggleUnderline,
@@ -111,4 +111,4 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </Button>
     </ToolbarContainer>
   )
-} 
+}) 
