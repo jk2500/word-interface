@@ -12,25 +12,70 @@ const isValidSlateContent = (content: any): content is Descendant[] => {
     )
 }
 
+interface EditorState {
+  content: Descendant[]
+  currentFont: string
+  formats: {
+    bold: boolean
+    italic: boolean
+    underline: boolean
+  }
+  isDark: boolean
+}
+
 export const StorageService = {
-  saveDocument: (content: Descendant[]) => {
+  saveDocument: (content: Descendant[], font: string, formats: EditorState['formats']) => {
     try {
-      localStorage.setItem(STORAGE_KEYS.DOCUMENT_CONTENT, JSON.stringify(content))
+      localStorage.setItem(STORAGE_KEYS.DOCUMENT_CONTENT, JSON.stringify({
+        content,
+        currentFont: font,
+        formats,
+      }))
     } catch (error) {
       console.error('Error saving document:', error)
     }
   },
 
-  loadDocument: (): Descendant[] => {
+  saveTheme: (isDark: boolean) => {
     try {
-      const content = localStorage.getItem(STORAGE_KEYS.DOCUMENT_CONTENT)
-      if (!content) return INITIAL_EDITOR_VALUE
+      localStorage.setItem(STORAGE_KEYS.THEME, JSON.stringify({ isDark }))
+    } catch (error) {
+      console.error('Error saving theme:', error)
+    }
+  },
 
-      const parsedContent = JSON.parse(content)
-      return isValidSlateContent(parsedContent) ? parsedContent : INITIAL_EDITOR_VALUE
+  loadDocument: (): Omit<EditorState, 'isDark'> => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.DOCUMENT_CONTENT)
+      if (!data) return {
+        content: INITIAL_EDITOR_VALUE,
+        currentFont: '',
+        formats: { bold: false, italic: false, underline: false }
+      }
+
+      const parsedData = JSON.parse(data)
+      return {
+        content: isValidSlateContent(parsedData.content) ? parsedData.content : INITIAL_EDITOR_VALUE,
+        currentFont: parsedData.currentFont || '',
+        formats: parsedData.formats || { bold: false, italic: false, underline: false }
+      }
     } catch (error) {
       console.error('Error loading document:', error)
-      return INITIAL_EDITOR_VALUE
+      return {
+        content: INITIAL_EDITOR_VALUE,
+        currentFont: '',
+        formats: { bold: false, italic: false, underline: false }
+      }
+    }
+  },
+
+  loadTheme: () => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.THEME)
+      if (!data) return false
+      return JSON.parse(data).isDark
+    } catch {
+      return false
     }
   }
 } 

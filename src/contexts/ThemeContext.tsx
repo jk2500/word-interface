@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState } from 'react'
+import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { Theme } from '@emotion/react'
 import { THEMES } from '../constants/theme'
+import { StorageService } from '../services/storage'
 
 type ThemeContextType = {
   theme: Theme
@@ -11,10 +12,16 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType | null>(null)
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(() => StorageService.loadTheme())
   const theme = isDark ? THEMES.dark : THEMES.light
 
-  const toggleTheme = () => setIsDark(!isDark)
+  const toggleTheme = useCallback(() => {
+    setIsDark((prev: boolean) => {
+      const newIsDark = !prev
+      StorageService.saveTheme(newIsDark)
+      return newIsDark
+    })
+  }, [])
 
   return (
     <ThemeContext.Provider value={{ theme, isDark, toggleTheme }}>

@@ -106,7 +106,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       ))}
 
       <Divider />
-      <Button onClick={toggleTheme}>
+      <Button onClick={() => {
+        toggleTheme()
+        refocusEditor()
+      }}>
         {isDark ? '☀️' : '🌙'}
       </Button>
     </ToolbarContainer>

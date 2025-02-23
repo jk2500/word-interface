@@ -3,7 +3,7 @@ import styled from '@emotion/styled'
 export const ToolbarContainer = styled.div`
   padding: 12px 0;
   margin-bottom: 20px;
-  border-bottom: 2px solid ${({ theme }) => theme.divider};
+  border-bottom: 1px solid ${({ theme }) => theme.border};
   display: flex;
   gap: 8px;
   align-items: center;
@@ -49,7 +49,7 @@ export const Select = styled.select`
   cursor: pointer;
   outline: none;
   background: ${({ theme }) => theme.paper};
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     border-color: ${({ theme }) => theme.border};

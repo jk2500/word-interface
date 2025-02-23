@@ -2,16 +2,22 @@ import styled from '@emotion/styled'
 
 export const EditorContainer = styled.div`
   max-width: 800px;
-  margin: 40px auto;
+  width: calc(100% - 40px);  // Account for margins
+  margin: 0 auto;
   padding: 30px 40px;
   border: 1px solid ${({ theme }) => theme.border};
   border-radius: 8px;
-  min-height: 800px;
+  height: calc(100vh - 80px);
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   background: ${({ theme }) => theme.paper};
   box-shadow: 0 2px 12px ${({ theme }) => theme.shadow};
   transition: all 0.3s ease;
+  overflow: hidden;
 
   &:hover {
     box-shadow: 0 4px 16px ${({ theme }) => theme.shadow};
@@ -20,21 +26,31 @@ export const EditorContainer = styled.div`
   [data-slate-editor="true"] {
     outline: none;
     flex: 1;
-    min-height: 400px;
+    overflow-y: auto;
     font-size: 16px;
     line-height: 1.6;
     color: ${({ theme }) => theme.text};
-  }
-
-  [contenteditable="true"] {
-    flex: 1;
-    min-height: 400px;
     padding: 20px 0;
+    transition: color 0.3s ease;
+    
+    // Hide scrollbar but keep functionality
+    scrollbar-width: thin;
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    &::-webkit-scrollbar-thumb {
+      background-color: ${({ theme }) => theme.border};
+      border-radius: 4px;
+    }
   }
 
   // Style the placeholder
   [data-slate-placeholder="true"] {
     color: ${({ theme }) => theme.placeholder};
     font-style: italic;
+    transition: color 0.3s ease;
   }
 ` 

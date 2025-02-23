@@ -16,7 +16,14 @@ export type CustomText = {
   font?: string
 }
 
-export type CustomEditor = BaseEditor & ReactEditor
+export type CustomEditor = BaseEditor & ReactEditor & {
+  currentFont: string
+  currentFormats: {
+    bold: boolean
+    italic: boolean
+    underline: boolean
+  }
+}
 
 declare module 'slate' {
   interface CustomTypes {

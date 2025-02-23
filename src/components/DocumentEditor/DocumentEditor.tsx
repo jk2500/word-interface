@@ -4,20 +4,37 @@ import { Slate, Editable, withReact } from 'slate-react'
 import { Toolbar } from './Toolbar'
 import { EditorContainer } from '../../styles/editor.styles'
 import { StorageService } from '../../services/storage'
+import { CustomElement } from '../../types/editor'
+import { debounce } from 'lodash'
 
 export const DocumentEditor: React.FC = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState<Descendant[]>(() => {
-    return StorageService.loadDocument()
-  })
-  // Add state for current font
-  const [currentFont, setCurrentFont] = useState('')
+  const editor = useMemo(() => {
+    const e = withReact(createEditor())
+    const savedState = StorageService.loadDocument()
+    e.currentFont = savedState.currentFont
+    e.currentFormats = savedState.formats
+    return e
+  }, [])
 
-  // Memoize the change handler
+  const [value, setValue] = useState<Descendant[]>(() => {
+    return StorageService.loadDocument().content
+  })
+  
+  const [currentFont, setCurrentFont] = useState(editor.currentFont)
+  const [formats, setFormats] = useState(editor.currentFormats)
+
+  // Debounce the save operation
+  const debouncedSave = useMemo(
+    () => debounce((content: Descendant[], font: string, formats: any) => {
+      StorageService.saveDocument(content as CustomElement[], font, formats)
+    }, 300),
+    []
+  )
+
   const handleChange = useCallback((newValue: Descendant[]) => {
     setValue(newValue)
-    StorageService.saveDocument(newValue)
-  }, [])
+    debouncedSave(newValue, currentFont, formats)
+  }, [currentFont, formats, debouncedSave])
 
   // Memoize render callbacks
   const renderElement = useCallback((props: any) => {
@@ -59,11 +76,16 @@ export const DocumentEditor: React.FC = () => {
   const toggleFormat = (format: 'bold' | 'italic' | 'underline') => {
     const isActive = isFormatActive(format)
     Editor.addMark(editor, format, !isActive)
+    
+    // Update format state
+    editor.currentFormats[format] = !isActive
+    setFormats({ ...editor.currentFormats })
   }
 
   const isFormatActive = (format: 'bold' | 'italic' | 'underline') => {
+    // Check both editor marks and our persistent state
     const marks = Editor.marks(editor)
-    return marks ? marks[format] === true : false
+    return marks ? marks[format] === true : editor.currentFormats[format]
   }
 
   // Update toggleFont to maintain font state
