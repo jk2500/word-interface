@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { createEditor, Descendant } from 'slate'
+import { createEditor, Descendant, Editor } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 import { Toolbar } from './Toolbar'
 import { EditorContainer } from '../../styles/editor.styles'
@@ -8,6 +8,16 @@ import { INITIAL_EDITOR_VALUE } from '../../constants/editor'
 export const DocumentEditor: React.FC = () => {
   const editor = useMemo(() => withReact(createEditor()), [])
   const [value, setValue] = useState<Descendant[]>(INITIAL_EDITOR_VALUE)
+
+  const toggleFormat = (format: 'bold' | 'italic' | 'underline') => {
+    const isActive = isFormatActive(format)
+    Editor.addMark(editor, format, !isActive)
+  }
+
+  const isFormatActive = (format: 'bold' | 'italic' | 'underline') => {
+    const marks = Editor.marks(editor)
+    return marks ? marks[format] === true : false
+  }
 
   const renderElement = (props: any) => {
     switch (props.element.type) {
@@ -36,7 +46,14 @@ export const DocumentEditor: React.FC = () => {
 
   return (
     <EditorContainer>
-      <Toolbar />
+      <Toolbar 
+        onToggleBold={() => toggleFormat('bold')}
+        onToggleItalic={() => toggleFormat('italic')}
+        onToggleUnderline={() => toggleFormat('underline')}
+        isBoldActive={isFormatActive('bold')}
+        isItalicActive={isFormatActive('italic')}
+        isUnderlineActive={isFormatActive('underline')}
+      />
       <Slate
         editor={editor}
         initialValue={value}
