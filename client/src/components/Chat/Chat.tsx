@@ -13,10 +13,19 @@ import {
 } from '../../styles/chat.styles'
 import { ChatMessage } from '../../types/chat'
 import { StorageService } from '../../services/storage'
-import { ChatHistoryItem } from '../../services/ai'
+import { ChatHistoryItem, SYSTEM_PROMPT, AIService } from '../../services/ai'
 import { APIService } from '../../services/api'
+import { useDocumentContext } from '../../contexts/DocumentContext'
+
+const COMMANDS = {
+  FORMAT: '/format',
+  HELP: '/help',
+  EDIT: '/edit',
+  ANALYZE: '/analyze'
+} as const
 
 export const Chat: React.FC = () => {
+  const { documentContext } = useDocumentContext()
   const [messages, setMessages] = useState<ChatMessage[]>(() => 
     StorageService.getMessages()
   )
@@ -29,12 +38,39 @@ export const Chat: React.FC = () => {
   }, [messages])
 
   // Convert messages to chat history format for AI
-  const getChatHistory = useCallback(() => {
-    return messages.map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
+  const getChatHistory = useCallback((): ChatHistoryItem[] => {
+    // Combine prompt + context into a single system string
+    const contextData = {
+      selectedText: documentContext.selectedText,
+      currentParagraph: documentContext.currentParagraph,
+      totalWords: documentContext.totalWords,
+      formatting: documentContext.currentFormat,
+      documentTitle: documentContext.documentTitle,
+      lastEdit: documentContext.lastEdit.toISOString()
+    }
+
+    // Now just merge the context into SYSTEM_PROMPT explicitly
+    const fullSystemText = [
+      SYSTEM_PROMPT.trim(),
+      '', // blank line
+      'DOCUMENT_CONTEXT:',
+      JSON.stringify(contextData, null, 2)
+    ].join('\n')
+
+    // Create a single system message
+    const systemMessages: ChatHistoryItem[] = [
+      { role: 'system', content: fullSystemText }
+    ]
+
+    // Convert previous user/assistant messages to ChatHistoryItem
+    const history: ChatHistoryItem[] = messages.map(msg => ({
+      role: msg.sender === 'user' ? 'user' : 
+            msg.sender === 'system' ? 'system' : 'assistant' as const,
       content: msg.text
-    } as ChatHistoryItem))
-  }, [messages])
+    }))
+
+    return [...systemMessages, ...history]
+  }, [messages, documentContext])
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -42,6 +78,28 @@ export const Chat: React.FC = () => {
       minute: '2-digit' 
     })
   }
+
+  const handleCommand = useCallback((command: string, args: string) => {
+    switch (command) {
+      case COMMANDS.FORMAT:
+        return `Current formatting:\n${JSON.stringify(documentContext.currentFormat, null, 2)}`
+      case COMMANDS.HELP:
+        return `Available commands:
+- ${COMMANDS.FORMAT}: Show current formatting
+- ${COMMANDS.EDIT}: Edit selected text
+- ${COMMANDS.ANALYZE}: Analyze current paragraph
+- ${COMMANDS.HELP}: Show this help message`
+      case COMMANDS.ANALYZE:
+        return `Analysis of current paragraph:
+- Words: ${documentContext.totalWords}
+- Format: ${documentContext.currentFormat.font}, ${
+          documentContext.currentFormat.isBold ? 'bold' : 'normal'
+        }
+- Last edited: ${documentContext.lastEdit.toLocaleString()}`
+      default:
+        return null
+    }
+  }, [documentContext])
 
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return
@@ -58,8 +116,13 @@ export const Chat: React.FC = () => {
     setIsLoading(true)
 
     try {
+      // Get chat history INCLUDING system messages and document context
       const history = getChatHistory()
+      console.log('Sending history:', history) // Add this for debugging
+      
+      // Send to API
       const aiResponse = await APIService.sendMessage(input, history)
+      
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         text: aiResponse || 'Sorry, I could not process that.',

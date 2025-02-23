@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react'
+import React, { useMemo, useState, useCallback, useEffect } from 'react'
 import { createEditor, Descendant, Editor } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 import { Toolbar } from './Toolbar'
@@ -6,8 +6,12 @@ import { EditorContainer } from '../../styles/editor.styles'
 import { StorageService } from '../../services/storage'
 import { CustomElement } from '../../types/editor'
 import { debounce } from 'lodash'
+import { useDocumentContext } from '../../contexts/DocumentContext'
+import { getCurrentParagraph, getCurrentParagraphText, countWords } from '../../utils/editor'
 
 export const DocumentEditor: React.FC = () => {
+  const { updateContext } = useDocumentContext()
+
   const editor = useMemo(() => {
     const e = withReact(createEditor())
     const savedState = StorageService.loadDocument()
@@ -31,10 +35,31 @@ export const DocumentEditor: React.FC = () => {
     []
   )
 
-  const handleChange = useCallback((newValue: Descendant[]) => {
-    setValue(newValue)
-    debouncedSave(newValue, currentFont, formats)
-  }, [currentFont, formats, debouncedSave])
+  const handleSelectionChange = useCallback(() => {
+    const selection = window.getSelection()
+    if (selection) {
+      updateContext({
+        type: 'SELECTION_CHANGE',
+        context: {
+          selectedText: selection.toString(),
+          currentParagraph: getCurrentParagraph(selection)
+        }
+      })
+    }
+  }, [updateContext])
+
+  const handleContentChange = useCallback((value: Descendant[]) => {
+    setValue(value)
+    debouncedSave(value, currentFont, formats)
+    
+    updateContext({
+      type: 'CONTENT_CHANGE',
+      context: {
+        totalWords: countWords(value),
+        currentParagraph: getCurrentParagraphText(editor)
+      }
+    })
+  }, [setValue, debouncedSave, currentFont, formats, updateContext, editor])
 
   // Memoize render callbacks
   const renderElement = useCallback((props: any) => {
@@ -99,12 +124,20 @@ export const DocumentEditor: React.FC = () => {
     return currentFont || Editor.marks(editor)?.font || ''
   }
 
+  // Add selection change event listener
+  useEffect(() => {
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange)
+    }
+  }, [handleSelectionChange])
+
   return (
     <EditorContainer>
       <Slate
         editor={editor}
         value={value}
-        onChange={handleChange}
+        onChange={handleContentChange}
       >
         <Toolbar 
           onToggleBold={() => toggleFormat('bold')}

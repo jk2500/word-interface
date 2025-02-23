@@ -4,6 +4,7 @@ import { Chat } from './components/Chat/Chat'
 import { AppContainer } from './styles/app.styles'
 import { ThemeProvider as EmotionThemeProvider } from '@emotion/react'
 import { ThemeProvider as CustomThemeProvider, useTheme } from './contexts/ThemeContext'
+import { DocumentContextProvider } from './contexts/DocumentContext'
 
 const ThemedApp: React.FC = () => {
   const { theme } = useTheme()
@@ -21,7 +22,9 @@ const ThemedApp: React.FC = () => {
 const App: React.FC = () => {
   return (
     <CustomThemeProvider>
-      <ThemedApp />
+      <DocumentContextProvider>
+        <ThemedApp />
+      </DocumentContextProvider>
     </CustomThemeProvider>
   )
 }
