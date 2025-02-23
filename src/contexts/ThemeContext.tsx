@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { Theme } from '@emotion/react'
 import { THEMES } from '../constants/theme'
 import { StorageService } from '../services/storage'
+import { StorageService } from '../services/storage'
 
 type ThemeContextType = {
   theme: Theme

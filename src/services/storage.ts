@@ -1,6 +1,16 @@
 import { Descendant, Element } from 'slate'
-import { STORAGE_KEYS } from '../constants/storage'
 import { INITIAL_EDITOR_VALUE } from '../constants/editor'
+import { debounce } from 'lodash'
+
+interface EditorState {
+  content: Descendant[]
+  isDark: boolean
+  currentFont: string
+}
+
+const STORAGE_KEYS = {
+  EDITOR_STATE: 'editor_state',
+}
 
 // Validate if the content has the correct structure
 const isValidSlateContent = (content: any): content is Descendant[] => {

@@ -14,6 +14,11 @@ export const EditorContainer = styled.div`
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+
+  // Theme-based styles
+  border: 1px solid ${({ theme }) => theme.border};
   background: ${({ theme }) => theme.paper};
   box-shadow: 0 2px 12px ${({ theme }) => theme.shadow};
   transition: all 0.3s ease;
@@ -23,6 +28,7 @@ export const EditorContainer = styled.div`
     box-shadow: 0 4px 16px ${({ theme }) => theme.shadow};
   }
 
+  // Editor styles
   [data-slate-editor="true"] {
     outline: none;
     flex: 1;
