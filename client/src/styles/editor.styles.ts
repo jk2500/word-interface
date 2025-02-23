@@ -1,19 +1,18 @@
 import styled from '@emotion/styled'
 
 export const EditorContainer = styled.div`
-  max-width: 800px;
-  width: calc(100% - 40px);  // Account for margins
-  margin: 0 auto;
-  padding: 30px 40px;
+  width: calc(66% - 60px); // 2/3 of the screen minus margins
   height: calc(100vh - 80px);
   position: fixed;
   top: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 40px;  // Changed from 50% transform
+  margin: 0;
+  transform: none;  // Remove centering transform
   display: flex;
   flex-direction: column;
   border-radius: 8px;
   transition: all 0.3s ease;
+  padding: 0;  // Reset padding here
 
   // Theme-based styles
   border: 1px solid ${({ theme }) => theme.border};
@@ -33,7 +32,7 @@ export const EditorContainer = styled.div`
     font-size: 16px;
     line-height: 1.6;
     color: ${({ theme }) => theme.text};
-    padding: 20px 0;
+    padding: 20px 40px;  // Add horizontal padding here
     transition: color 0.3s ease;
     
     // Hide scrollbar but keep functionality

@@ -12,7 +12,7 @@ const BaseButton = styled.button`
 `
 
 export const ToolbarContainer = styled.div`
-  padding: 12px 0;
+  padding: 12px 40px;
   margin-bottom: 20px;
   border-bottom: 2px solid ${({ theme }) => theme.divider};
   display: flex;

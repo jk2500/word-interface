@@ -1,0 +1,135 @@
+import React, { useState, useCallback, useEffect } from 'react'
+import { 
+  ChatContainer, 
+  MessageList, 
+  Message,
+  MessageBubble,
+  Timestamp,
+  InputContainer,
+  LoadingDots,
+  ChatHeader,
+  ChatTitle,
+  ClearButton
+} from '../../styles/chat.styles'
+import { ChatMessage } from '../../types/chat'
+import { StorageService } from '../../services/storage'
+import { ChatHistoryItem } from '../../services/ai'
+import { APIService } from '../../services/api'
+
+export const Chat: React.FC = () => {
+  const [messages, setMessages] = useState<ChatMessage[]>(() => 
+    StorageService.getMessages()
+  )
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Save messages whenever they change
+  useEffect(() => {
+    StorageService.saveMessages(messages)
+  }, [messages])
+
+  // Convert messages to chat history format for AI
+  const getChatHistory = useCallback(() => {
+    return messages.map(msg => ({
+      role: msg.sender === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    } as ChatHistoryItem))
+  }, [messages])
+
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+  }
+
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || isLoading) return
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: input,
+      sender: 'user',
+      timestamp: Date.now()
+    }
+
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+
+    try {
+      const history = getChatHistory()
+      const aiResponse = await APIService.sendMessage(input, history)
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponse || 'Sorry, I could not process that.',
+        sender: 'ai',
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, aiMessage])
+    } catch (error: any) {
+      console.error('Error getting AI response:', error)
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        text: `Error: ${error.message || 'Failed to get response from AI'}`,
+        sender: 'ai',
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [input, isLoading, getChatHistory])
+
+  const handleClear = useCallback(() => {
+    setMessages([])
+    StorageService.saveMessages([])  // Clear from storage too
+  }, [])
+
+  return (
+    <ChatContainer>
+      <ChatHeader>
+        <ChatTitle>Chat Assistant</ChatTitle>
+        <ClearButton onClick={handleClear}>
+          Clear Chat
+        </ClearButton>
+      </ChatHeader>
+      <MessageList>
+        {messages.map(message => (
+          <Message key={message.id} isUser={message.sender === 'user'}>
+            <MessageBubble isUser={message.sender === 'user'}>
+              {message.text}
+            </MessageBubble>
+            <Timestamp>{formatTime(message.timestamp)}</Timestamp>
+          </Message>
+        ))}
+        {isLoading && (
+          <Message isUser={false}>
+            <LoadingDots>
+              <span></span>
+              <span></span>
+              <span></span>
+            </LoadingDots>
+          </Message>
+        )}
+      </MessageList>
+      <InputContainer isLoading={isLoading}>
+        <input 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+          placeholder={isLoading ? "AI is thinking..." : "Type a message..."}
+          disabled={isLoading}
+        />
+        <button 
+          onClick={handleSend}
+          disabled={isLoading}
+        >
+          {isLoading ? "Sending..." : "Send"}
+        </button>
+      </InputContainer>
+    </ChatContainer>
+  )
+}
+
+export default Chat 

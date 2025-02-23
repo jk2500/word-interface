@@ -1,6 +1,6 @@
 import { Descendant, Element } from 'slate'
 import { INITIAL_EDITOR_VALUE } from '../constants/editor'
-import { debounce } from 'lodash'
+import { ChatMessage } from '../types/chat'
 
 interface EditorState {
   content: Descendant[]
@@ -15,7 +15,8 @@ interface EditorState {
 const STORAGE_KEYS = {
   EDITOR_STATE: 'editor_state',
   DOCUMENT_CONTENT: 'document_content',
-  THEME: 'theme_preference'
+  THEME: 'theme_preference',
+  CHAT_MESSAGES: 'chat_messages'
 }
 
 // Validate if the content has the correct structure
@@ -81,6 +82,25 @@ export const StorageService = {
       return JSON.parse(data).isDark
     } catch {
       return false
+    }
+  },
+
+  saveMessages: (messages: ChatMessage[]) => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CHAT_MESSAGES, JSON.stringify(messages))
+    } catch (error) {
+      console.error('Error saving messages:', error)
+    }
+  },
+
+  loadMessages: (): ChatMessage[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CHAT_MESSAGES)
+      if (!data) return []
+      return JSON.parse(data)
+    } catch (error) {
+      console.error('Error loading messages:', error)
+      return []
     }
   }
 } 

@@ -103,7 +103,7 @@ export const DocumentEditor: React.FC = () => {
     <EditorContainer>
       <Slate
         editor={editor}
-        initialValue={value}
+        value={value}
         onChange={handleChange}
       >
         <Toolbar 

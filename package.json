@@ -1,47 +1,20 @@
 {
-  "name": "word-interface",
-  "version": "0.1.0",
+  "name": "word-interface-workspace",
+  "version": "1.0.0",
   "private": true,
-  "dependencies": {
-    "@emotion/styled": "^11.11.0",
-    "@testing-library/dom": "^10.4.0",
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.2.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.126",
-    "@types/react": "^19.0.10",
-    "@types/react-dom": "^19.0.4",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "react-scripts": "5.0.1",
-    "slate": "^0.101.5",
-    "slate-react": "^0.101.5",
-    "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
-  },
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "start": "BROWSER=none TSC_WATCHFILE=UseFsEventsWithFallbackDynamicPolling react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
+    "start:client": "cd client && npm start",
+    "start:server": "cd server && npm run dev",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "build": "cd client && npm run build",
+    "clean": "rm -rf node_modules && rm -rf client/node_modules && rm -rf server/node_modules"
   },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "devDependencies": {
+    "concurrently": "^8.0.0"
   }
-}
+} 
