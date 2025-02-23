@@ -4,12 +4,18 @@ import { debounce } from 'lodash'
 
 interface EditorState {
   content: Descendant[]
-  isDark: boolean
   currentFont: string
+  formats: {
+    bold: boolean
+    italic: boolean
+    underline: boolean
+  }
 }
 
 const STORAGE_KEYS = {
   EDITOR_STATE: 'editor_state',
+  DOCUMENT_CONTENT: 'document_content',
+  THEME: 'theme_preference'
 }
 
 // Validate if the content has the correct structure
@@ -22,24 +28,13 @@ const isValidSlateContent = (content: any): content is Descendant[] => {
     )
 }
 
-interface EditorState {
-  content: Descendant[]
-  currentFont: string
-  formats: {
-    bold: boolean
-    italic: boolean
-    underline: boolean
-  }
-  isDark: boolean
-}
-
 export const StorageService = {
   saveDocument: (content: Descendant[], font: string, formats: EditorState['formats']) => {
     try {
       localStorage.setItem(STORAGE_KEYS.DOCUMENT_CONTENT, JSON.stringify({
         content,
         currentFont: font,
-        formats,
+        formats
       }))
     } catch (error) {
       console.error('Error saving document:', error)
@@ -54,7 +49,7 @@ export const StorageService = {
     }
   },
 
-  loadDocument: (): Omit<EditorState, 'isDark'> => {
+  loadDocument: (): EditorState => {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.DOCUMENT_CONTENT)
       if (!data) return {

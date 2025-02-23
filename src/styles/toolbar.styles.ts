@@ -14,7 +14,7 @@ const BaseButton = styled.button`
 export const ToolbarContainer = styled.div`
   padding: 12px 0;
   margin-bottom: 20px;
-  border-bottom: 1px solid ${({ theme }) => theme.border};
+  border-bottom: 2px solid ${({ theme }) => theme.divider};
   display: flex;
   gap: 8px;
   align-items: center;
@@ -22,7 +22,6 @@ export const ToolbarContainer = styled.div`
   top: 0;
   z-index: 10;
   transition: all 0.3s ease;
-  border-bottom: 2px solid ${({ theme }) => theme.divider};
   background: ${({ theme }) => theme.paper};
 `
 

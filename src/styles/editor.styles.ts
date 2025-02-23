@@ -5,8 +5,6 @@ export const EditorContainer = styled.div`
   width: calc(100% - 40px);  // Account for margins
   margin: 0 auto;
   padding: 30px 40px;
-  border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 8px;
   height: calc(100vh - 80px);
   position: fixed;
   top: 40px;
@@ -21,7 +19,6 @@ export const EditorContainer = styled.div`
   border: 1px solid ${({ theme }) => theme.border};
   background: ${({ theme }) => theme.paper};
   box-shadow: 0 2px 12px ${({ theme }) => theme.shadow};
-  transition: all 0.3s ease;
   overflow: hidden;
 
   &:hover {
