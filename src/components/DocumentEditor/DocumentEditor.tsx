@@ -19,10 +19,26 @@ export const DocumentEditor: React.FC = () => {
     return marks ? marks[format] === true : false
   }
 
+  const toggleFont = (font: string) => {
+    Editor.addMark(editor, 'font', font)
+  }
+
+  const getCurrentFont = () => {
+    const marks = Editor.marks(editor)
+    return marks?.font || ''
+  }
+
   const renderElement = (props: any) => {
     switch (props.element.type) {
       case 'paragraph':
-        return <p {...props.attributes}>{props.children}</p>
+        return (
+          <p 
+            {...props.attributes} 
+            style={{ textAlign: props.element.align || 'left' }}
+          >
+            {props.children}
+          </p>
+        )
       default:
         return <p {...props.attributes}>{props.children}</p>
     }
@@ -30,15 +46,19 @@ export const DocumentEditor: React.FC = () => {
 
   const renderLeaf = (props: any) => {
     let children = props.children
+    const { leaf } = props
 
-    if (props.leaf.bold) {
+    if (leaf.bold) {
       children = <strong>{children}</strong>
     }
-    if (props.leaf.italic) {
+    if (leaf.italic) {
       children = <em>{children}</em>
     }
-    if (props.leaf.underline) {
+    if (leaf.underline) {
       children = <u>{children}</u>
+    }
+    if (leaf.font) {
+      children = <span style={{ fontFamily: leaf.font }}>{children}</span>
     }
 
     return <span {...props.attributes}>{children}</span>
@@ -46,19 +66,21 @@ export const DocumentEditor: React.FC = () => {
 
   return (
     <EditorContainer>
-      <Toolbar 
-        onToggleBold={() => toggleFormat('bold')}
-        onToggleItalic={() => toggleFormat('italic')}
-        onToggleUnderline={() => toggleFormat('underline')}
-        isBoldActive={isFormatActive('bold')}
-        isItalicActive={isFormatActive('italic')}
-        isUnderlineActive={isFormatActive('underline')}
-      />
       <Slate
         editor={editor}
         initialValue={value}
         onChange={newValue => setValue(newValue)}
       >
+        <Toolbar 
+          onToggleBold={() => toggleFormat('bold')}
+          onToggleItalic={() => toggleFormat('italic')}
+          onToggleUnderline={() => toggleFormat('underline')}
+          isBoldActive={isFormatActive('bold')}
+          isItalicActive={isFormatActive('italic')}
+          isUnderlineActive={isFormatActive('underline')}
+          onFontChange={toggleFont}
+          currentFont={getCurrentFont()}
+        />
         <Editable
           renderElement={renderElement}
           renderLeaf={renderLeaf}

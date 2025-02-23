@@ -18,4 +18,18 @@ export const Button = styled.button`
   &:hover {
     background: #f0f0f0;
   }
+`
+
+export const Select = styled.select`
+  padding: 5px;
+  margin-right: 8px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 14px;
+  min-width: 120px;
+  outline: none;
+
+  &:focus {
+    border-color: #ccc;
+  }
 ` 
