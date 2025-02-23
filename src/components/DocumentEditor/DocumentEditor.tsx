@@ -1,34 +1,26 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useCallback } from 'react'
 import { createEditor, Descendant, Editor } from 'slate'
 import { Slate, Editable, withReact } from 'slate-react'
 import { Toolbar } from './Toolbar'
 import { EditorContainer } from '../../styles/editor.styles'
-import { INITIAL_EDITOR_VALUE } from '../../constants/editor'
+import { StorageService } from '../../services/storage'
 
 export const DocumentEditor: React.FC = () => {
   const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState<Descendant[]>(INITIAL_EDITOR_VALUE)
+  const [value, setValue] = useState<Descendant[]>(() => {
+    return StorageService.loadDocument()
+  })
+  // Add state for current font
+  const [currentFont, setCurrentFont] = useState('')
 
-  const toggleFormat = (format: 'bold' | 'italic' | 'underline') => {
-    const isActive = isFormatActive(format)
-    Editor.addMark(editor, format, !isActive)
-  }
+  // Memoize the change handler
+  const handleChange = useCallback((newValue: Descendant[]) => {
+    setValue(newValue)
+    StorageService.saveDocument(newValue)
+  }, [])
 
-  const isFormatActive = (format: 'bold' | 'italic' | 'underline') => {
-    const marks = Editor.marks(editor)
-    return marks ? marks[format] === true : false
-  }
-
-  const toggleFont = (font: string) => {
-    Editor.addMark(editor, 'font', font)
-  }
-
-  const getCurrentFont = () => {
-    const marks = Editor.marks(editor)
-    return marks?.font || ''
-  }
-
-  const renderElement = (props: any) => {
+  // Memoize render callbacks
+  const renderElement = useCallback((props: any) => {
     switch (props.element.type) {
       case 'paragraph':
         return (
@@ -42,9 +34,9 @@ export const DocumentEditor: React.FC = () => {
       default:
         return <p {...props.attributes}>{props.children}</p>
     }
-  }
+  }, [])
 
-  const renderLeaf = (props: any) => {
+  const renderLeaf = useCallback((props: any) => {
     let children = props.children
     const { leaf } = props
 
@@ -62,6 +54,27 @@ export const DocumentEditor: React.FC = () => {
     }
 
     return <span {...props.attributes}>{children}</span>
+  }, [])
+
+  const toggleFormat = (format: 'bold' | 'italic' | 'underline') => {
+    const isActive = isFormatActive(format)
+    Editor.addMark(editor, format, !isActive)
+  }
+
+  const isFormatActive = (format: 'bold' | 'italic' | 'underline') => {
+    const marks = Editor.marks(editor)
+    return marks ? marks[format] === true : false
+  }
+
+  // Update toggleFont to maintain font state
+  const toggleFont = (font: string) => {
+    setCurrentFont(font)
+    Editor.addMark(editor, 'font', font)
+  }
+
+  // Update getCurrentFont to use state
+  const getCurrentFont = () => {
+    return currentFont || Editor.marks(editor)?.font || ''
   }
 
   return (
@@ -69,7 +82,7 @@ export const DocumentEditor: React.FC = () => {
       <Slate
         editor={editor}
         initialValue={value}
-        onChange={newValue => setValue(newValue)}
+        onChange={handleChange}
       >
         <Toolbar 
           onToggleBold={() => toggleFormat('bold')}
@@ -85,6 +98,11 @@ export const DocumentEditor: React.FC = () => {
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           placeholder="Start typing..."
+          style={{ 
+            fontFamily: getCurrentFont() || 'inherit',
+            // Add a min-height to ensure placeholder is visible
+            minHeight: '100%'
+          }}
         />
       </Slate>
     </EditorContainer>

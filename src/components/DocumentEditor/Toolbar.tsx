@@ -1,9 +1,10 @@
 import React from 'react'
-import { ToolbarContainer, Button, Select } from '../../styles/toolbar.styles'
+import { ToolbarContainer, Button, Select, Divider } from '../../styles/toolbar.styles'
 import { useSlate, ReactEditor } from 'slate-react'
 import { Editor, Element, Transforms } from 'slate'
 import { ALIGNMENT_ICONS, FONT_OPTIONS, Alignment } from '../../constants/toolbar'
 import { CustomElement } from '../../types/editor'
+import { useTheme } from '../../contexts/ThemeContext'
 
 interface ToolbarProps {
   onToggleBold: () => void
@@ -27,6 +28,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   currentFont
 }) => {
   const editor = useSlate()
+  const { isDark, toggleTheme } = useTheme()
 
   const toggleAlign = (alignment: Alignment) => {
     const nodes = Array.from(
@@ -58,13 +60,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <option key={font} value={font}>{font}</option>
         ))}
       </Select>
-
-      <Button
+      <Divider />
+      <Button 
         onClick={() => {
           onToggleBold()
           refocusEditor()
         }}
         style={{ fontWeight: isBoldActive ? 'bold' : 'normal' }}
+        data-active={isBoldActive}
       >
         B
       </Button>
@@ -101,6 +104,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           {icon}
         </Button>
       ))}
+
+      <Divider />
+      <Button onClick={toggleTheme}>
+        {isDark ? '☀️' : '🌙'}
+      </Button>
     </ToolbarContainer>
   )
 } 
