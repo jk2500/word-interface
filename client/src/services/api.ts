@@ -4,6 +4,9 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 export const APIService = {
   async sendMessage(message: string, history: ChatHistoryItem[] = []) {
+    console.log('APIService - Sending Message:', message)
+    console.log('APIService - Sending History:', history)
+    
     try {
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
@@ -21,9 +24,10 @@ export const APIService = {
       }
 
       const data = await response.json()
+      console.log('APIService - Received Response:', data)
       return data.message
     } catch (error: any) {
-      console.error('Error calling API:', error)
+      console.error('APIService - Error:', error)
       throw new Error(error.message || 'Failed to get AI response')
     }
   }

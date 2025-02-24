@@ -13,6 +13,7 @@ export const ChatContainer = styled.div`
   flex-direction: column;
   transition: all 0.3s ease;
   box-shadow: 0 2px 12px ${({ theme }) => theme.shadow};
+  className: 'chat-container';
 `
 
 export const MessageList = styled.div`
@@ -40,12 +41,14 @@ export const MessageBubble = styled.div<{ isUser: boolean }>`
   color: ${({ theme }) => theme.text};
   word-wrap: break-word;
   max-width: 100%;
+  transition: all 0.3s ease;
 `
 
 export const Timestamp = styled.span`
   font-size: 12px;
   color: ${({ theme }) => theme.textSecondary};
   margin-top: 4px;
+  transition: color 0.3s ease;
 `
 
 export const LoadingDots = styled.div`
@@ -80,6 +83,7 @@ export const InputContainer = styled.div<{ isLoading: boolean }>`
   gap: 8px;
   background: ${({ theme }) => theme.paper};
   border-radius: 0 0 8px 8px;
+  transition: all 0.3s ease;
 
   input {
     flex: 1;
@@ -89,7 +93,7 @@ export const InputContainer = styled.div<{ isLoading: boolean }>`
     background: ${({ theme }) => theme.background};
     color: ${({ theme }) => theme.text};
     outline: none;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     opacity: ${props => props.isLoading ? 0.7 : 1};
     pointer-events: ${props => props.isLoading ? 'none' : 'auto'};
 
@@ -106,7 +110,7 @@ export const InputContainer = styled.div<{ isLoading: boolean }>`
     border: 1px solid ${({ theme }) => theme.border};
     border-radius: 20px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     font-weight: 500;
     opacity: ${props => props.isLoading ? 0.7 : 1};
     pointer-events: ${props => props.isLoading ? 'none' : 'auto'};
@@ -130,12 +134,14 @@ export const ChatHeader = styled.div`
   align-items: center;
   background: ${({ theme }) => theme.paper};
   border-radius: 8px 8px 0 0;
+  transition: all 0.3s ease;
 `
 
 export const ChatTitle = styled.h2`
   margin: 0;
   font-size: 16px;
   color: ${({ theme }) => theme.text};
+  transition: color 0.3s ease;
 `
 
 export const ClearButton = styled.button`
@@ -146,7 +152,7 @@ export const ClearButton = styled.button`
   color: ${({ theme }) => theme.text};
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
 
   &:hover {
     background: ${({ theme }) => theme.active};

@@ -25,6 +25,7 @@ export interface DocumentState {
 export interface DocumentContext {
   selectedText: string
   currentParagraph: string
+  fullDocument: string
   documentTitle: string
   lastEdit: Date
   totalWords: number
@@ -34,6 +35,7 @@ export interface DocumentContext {
     isUnderline: boolean
     font: string
   }
+  fullContent?: string
 }
 
 export interface DocumentContextUpdate {

@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react'
-import { createEditor, Descendant, Editor } from 'slate'
-import { Slate, Editable, withReact } from 'slate-react'
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
+import { createEditor, Descendant, Editor, Range, Transforms } from 'slate'
+import { Slate, Editable, withReact, ReactEditor } from 'slate-react'
 import { Toolbar } from './Toolbar'
 import { EditorContainer } from '../../styles/editor.styles'
 import { StorageService } from '../../services/storage'
@@ -27,6 +27,9 @@ export const DocumentEditor: React.FC = () => {
   const [currentFont, setCurrentFont] = useState(editor.currentFont)
   const [formats, setFormats] = useState(editor.currentFormats)
 
+  // Ref to store the current selection
+  const selectionRef = useRef<Range | null>(null)
+
   // Debounce the save operation
   const debouncedSave = useMemo(
     () => debounce((content: Descendant[], font: string, formats: any) => {
@@ -36,17 +39,11 @@ export const DocumentEditor: React.FC = () => {
   )
 
   const handleSelectionChange = useCallback(() => {
-    const selection = window.getSelection()
-    if (selection) {
-      updateContext({
-        type: 'SELECTION_CHANGE',
-        context: {
-          selectedText: selection.toString(),
-          currentParagraph: getCurrentParagraph(selection)
-        }
-      })
+    const { selection } = editor
+    if (selection && !Range.isCollapsed(selection)) {
+      selectionRef.current = selection // Store the current selection
     }
-  }, [updateContext])
+  }, [editor])
 
   const handleContentChange = useCallback((value: Descendant[]) => {
     setValue(value)
@@ -56,10 +53,30 @@ export const DocumentEditor: React.FC = () => {
       type: 'CONTENT_CHANGE',
       context: {
         totalWords: countWords(value),
-        currentParagraph: getCurrentParagraphText(editor)
+        currentParagraph: getCurrentParagraphText(editor),
+        fullContent: JSON.stringify(value)
       }
     })
   }, [setValue, debouncedSave, currentFont, formats, updateContext, editor])
+
+  // Restore selection when the editor is focused
+  const handleFocus = () => {
+    if (selectionRef.current) {
+      Transforms.select(editor, selectionRef.current) // Restore the selection
+    }
+  }
+
+  // Add this function to prevent selection loss
+  const handleEditorBlur = useCallback((event: React.FocusEvent) => {
+    // Check if the new focus target is within the chat interface
+    const chatContainer = document.querySelector('.chat-container')
+    if (chatContainer?.contains(event.relatedTarget as Node)) {
+      // If clicking into chat, prevent the blur and maintain selection
+      event.preventDefault()
+      // Keep editor in focus
+      ReactEditor.focus(editor)
+    }
+  }, [editor])
 
   // Memoize render callbacks
   const renderElement = useCallback((props: any) => {
@@ -150,12 +167,13 @@ export const DocumentEditor: React.FC = () => {
           currentFont={getCurrentFont()}
         />
         <Editable
+          onFocus={handleFocus}
+          onBlur={handleEditorBlur}
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           placeholder="Start typing..."
           style={{ 
             fontFamily: getCurrentFont() || 'inherit',
-            // Add a min-height to ensure placeholder is visible
             minHeight: '100%'
           }}
         />

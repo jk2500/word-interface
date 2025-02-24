@@ -24,6 +24,17 @@ const COMMANDS = {
   ANALYZE: '/analyze'
 } as const
 
+const getSenderRole = (sender: 'user' | 'ai' | 'system'): 'user' | 'system' | 'assistant' => {
+  switch (sender) {
+    case 'user':
+      return 'user'
+    case 'system':
+      return 'system'
+    case 'ai':
+      return 'assistant'
+  }
+}
+
 export const Chat: React.FC = () => {
   const { documentContext } = useDocumentContext()
   const [messages, setMessages] = useState<ChatMessage[]>(() => 
@@ -38,39 +49,33 @@ export const Chat: React.FC = () => {
   }, [messages])
 
   // Convert messages to chat history format for AI
-  const getChatHistory = useCallback((): ChatHistoryItem[] => {
-    // Combine prompt + context into a single system string
-    const contextData = {
-      selectedText: documentContext.selectedText,
-      currentParagraph: documentContext.currentParagraph,
-      totalWords: documentContext.totalWords,
-      formatting: documentContext.currentFormat,
-      documentTitle: documentContext.documentTitle,
-      lastEdit: documentContext.lastEdit.toISOString()
+  const getChatHistory = useCallback((selectedText: string): ChatHistoryItem[] => {
+    // Create the initial system prompt message.
+    const systemPromptMessage: ChatHistoryItem = {
+      role: 'system',
+      content: SYSTEM_PROMPT.trim()
     }
-
-    // Now just merge the context into SYSTEM_PROMPT explicitly
-    const fullSystemText = [
-      SYSTEM_PROMPT.trim(),
-      '', // blank line
-      'DOCUMENT_CONTEXT:',
-      JSON.stringify(contextData, null, 2)
-    ].join('\n')
-
-    // Create a single system message
-    const systemMessages: ChatHistoryItem[] = [
-      { role: 'system', content: fullSystemText }
-    ]
-
-    // Convert previous user/assistant messages to ChatHistoryItem
-    const history: ChatHistoryItem[] = messages.map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 
-            msg.sender === 'system' ? 'system' : 'assistant' as const,
-      content: msg.text
-    }))
-
-    return [...systemMessages, ...history]
+  
+    // Convert existing messages (only user and assistant) into history.
+    const conversationHistory: ChatHistoryItem[] = messages
+      .filter(msg => msg.sender === 'user' || msg.sender === 'ai')
+      .map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text
+      }))
+  
+    // Create a new system message with just the current paragraph
+    const documentContextMessage: ChatHistoryItem = {
+      role: 'system',
+      content: `Current Paragraph: "${documentContext.currentParagraph}"`
+    }
+  
+    // Append the document context as the last entry.
+    return [systemPromptMessage, ...conversationHistory, documentContextMessage]
   }, [messages, documentContext])
+  
+
+
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -104,37 +109,46 @@ export const Chat: React.FC = () => {
   const handleSend = useCallback(async () => {
     if (!input.trim() || isLoading) return
 
-    const userMessage: ChatMessage = {
+    const systemMessage: ChatMessage = {
       id: Date.now().toString(),
+      text: `Current Paragraph: "${documentContext.currentParagraph}"`,
+      sender: 'system',
+      timestamp: Date.now()
+    }
+
+    const userMessage: ChatMessage = {
+      id: (Date.now() + 1).toString(),
       text: input,
       sender: 'user',
       timestamp: Date.now()
     }
 
-    setMessages(prev => [...prev, userMessage])
+    // Add both messages to state before API call
+    setMessages(prev => [...prev, systemMessage, userMessage])
     setInput('')
     setIsLoading(true)
 
     try {
-      // Get chat history INCLUDING system messages and document context
-      const history = getChatHistory()
-      console.log('Sending history:', history) // Add this for debugging
+      // Get chat history including system messages and document context
+      const history = getChatHistory(documentContext.selectedText)
       
       // Send to API
       const aiResponse = await APIService.sendMessage(input, history)
       
       const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: (Date.now() + 2).toString(),
         text: aiResponse || 'Sorry, I could not process that.',
         sender: 'ai',
         timestamp: Date.now()
       }
+
+      // Add AI response
       setMessages(prev => [...prev, aiMessage])
     } catch (error: any) {
       console.error('Error getting AI response:', error)
       const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: `Error: ${error.message || 'Failed to get response from AI'}`,
+        id: Date.now().toString(),
+        text: `Error: ${error.message || 'Failed to get AI response'}`,
         sender: 'ai',
         timestamp: Date.now()
       }
@@ -142,7 +156,7 @@ export const Chat: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, getChatHistory])
+  }, [input, isLoading, getChatHistory, documentContext])
 
   const handleClear = useCallback(() => {
     setMessages([])
@@ -158,14 +172,17 @@ export const Chat: React.FC = () => {
         </ClearButton>
       </ChatHeader>
       <MessageList>
-        {messages.map(message => (
-          <Message key={message.id} isUser={message.sender === 'user'}>
-            <MessageBubble isUser={message.sender === 'user'}>
-              {message.text}
-            </MessageBubble>
-            <Timestamp>{formatTime(message.timestamp)}</Timestamp>
-          </Message>
-        ))}
+        {messages
+          // Only show user & ai messages
+          .filter(m => m.sender === 'user' || m.sender === 'ai')
+          .map(message => (
+            <Message key={message.id} isUser={message.sender === 'user'}>
+              <MessageBubble isUser={message.sender === 'user'}>
+                {message.text}
+              </MessageBubble>
+              <Timestamp>{formatTime(message.timestamp)}</Timestamp>
+            </Message>
+          ))}
         {isLoading && (
           <Message isUser={false}>
             <LoadingDots>
