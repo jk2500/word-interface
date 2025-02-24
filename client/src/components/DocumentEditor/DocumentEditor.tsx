@@ -8,6 +8,7 @@ import { CustomElement } from '../../types/editor'
 import { debounce } from 'lodash'
 import { useDocumentContext } from '../../contexts/DocumentContext'
 import { getCurrentParagraph, getCurrentParagraphText, countWords } from '../../utils/editor'
+import { DocumentTitle } from './DocumentTitle'
 
 export const DocumentEditor: React.FC = () => {
   const { updateContext } = useDocumentContext()
@@ -171,6 +172,7 @@ export const DocumentEditor: React.FC = () => {
 
   return (
     <EditorContainer>
+      <DocumentTitle />
       <Slate
         editor={editor}
         value={value}

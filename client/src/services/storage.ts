@@ -1,31 +1,6 @@
-import { Descendant } from 'slate'
 import { CustomElement } from '../types/editor'
-
-interface DocumentState {
-  content: Descendant[]
-  currentFont: string
-  formats: {
-    bold: boolean
-    italic: boolean
-    underline: boolean
-  }
-}
-
-const STORAGE_KEYS = {
-  MESSAGES: 'chat_messages',
-  DOCUMENT: 'document_content',
-  THEME: 'theme_preference'
-}
-
-const DEFAULT_DOCUMENT_STATE: DocumentState = {
-  content: [{ type: 'paragraph', children: [{ text: '' }] }],
-  currentFont: 'Arial',
-  formats: {
-    bold: false,
-    italic: false,
-    underline: false
-  }
-}
+import { DocumentState, STORAGE_KEYS, DEFAULT_DOCUMENT_STATE } from '../types/storage'
+import { MetadataService } from './metadataService'
 
 export const StorageService = {
   // Chat methods
@@ -46,6 +21,7 @@ export const StorageService = {
       formats
     }
     localStorage.setItem(STORAGE_KEYS.DOCUMENT, JSON.stringify(state))
+    MetadataService.updateLastModified()
   },
 
   loadDocument(): DocumentState {
