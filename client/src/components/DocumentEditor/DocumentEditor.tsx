@@ -59,22 +59,42 @@ export const DocumentEditor: React.FC = () => {
     })
   }, [setValue, debouncedSave, currentFont, formats, updateContext, editor])
 
-  // Restore selection when the editor is focused
-  const handleFocus = () => {
+  // Update the handleFocus function to be more defensive
+  const handleFocus = useCallback(() => {
     if (selectionRef.current) {
-      Transforms.select(editor, selectionRef.current) // Restore the selection
+      try {
+        // Check if the selection point is valid before trying to restore it
+        const isValidPoint = Editor.hasPath(editor, selectionRef.current.anchor.path) &&
+                            Editor.hasPath(editor, selectionRef.current.focus.path)
+        
+        if (isValidPoint) {
+          Transforms.select(editor, selectionRef.current)
+        } else {
+          // If the point is invalid, clear the stored selection
+          selectionRef.current = null
+        }
+      } catch (error) {
+        console.error('Failed to restore selection:', error)
+        selectionRef.current = null
+      }
     }
-  }
+  }, [editor])
 
-  // Add this function to prevent selection loss
+  // Update handleEditorBlur to be more careful with focus management
   const handleEditorBlur = useCallback((event: React.FocusEvent) => {
     // Check if the new focus target is within the chat interface
     const chatContainer = document.querySelector('.chat-container')
     if (chatContainer?.contains(event.relatedTarget as Node)) {
-      // If clicking into chat, prevent the blur and maintain selection
       event.preventDefault()
-      // Keep editor in focus
-      ReactEditor.focus(editor)
+      
+      // Only try to refocus if we have a valid selection
+      try {
+        if (editor.selection && Editor.hasPath(editor, editor.selection.anchor.path)) {
+          ReactEditor.focus(editor)
+        }
+      } catch (error) {
+        console.error('Failed to maintain focus:', error)
+      }
     }
   }, [editor])
 
