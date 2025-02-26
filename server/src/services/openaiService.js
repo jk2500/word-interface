@@ -9,7 +9,34 @@ const openaiService = {
         ...history,
         { role: 'user', content: message }
       ],
-      model: 'gpt-4',
+      model: 'gpt-4o-mini',
+      store: true
+    })
+
+    return completion.choices[0].message.content
+  },
+
+  async createStreamingChatCompletion(message, history) {
+    const stream = await openai.chat.completions.create({
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...history,
+        { role: 'user', content: message }
+      ],
+      model: 'gpt-4o-mini',
+      stream: true
+    })
+
+    return stream
+  },
+  
+  async createEditCompletion(messages) {
+    // Use a faster model for edits for better responsiveness
+    const completion = await openai.chat.completions.create({
+      messages: messages,
+      model: 'gpt-4o-mini',
+      max_tokens: 1000,
+      temperature: 0.7,
       store: true
     })
 

@@ -8,12 +8,16 @@ export const ChatContainer = styled.div`
   height: calc(100vh - 80px);
   background: ${({ theme }) => theme.paper};
   border: 1px solid ${({ theme }) => theme.border};
-  border-radius: 8px;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 12px ${({ theme }) => theme.shadow};
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   className: 'chat-container';
+  
+  &:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  }
 `
 
 export const MessageList = styled.div`
@@ -42,6 +46,24 @@ export const MessageBubble = styled.div<{ isUser: boolean }>`
   word-wrap: break-word;
   max-width: 100%;
   transition: all 0.3s ease;
+  
+  &.streaming {
+    border-right: 2px solid ${({ theme }) => theme.primary};
+    animation: pulse 1.2s infinite;
+    
+    @keyframes pulse {
+      0% { border-right-color: ${({ theme }) => theme.primary}; }
+      50% { border-right-color: transparent; }
+      100% { border-right-color: ${({ theme }) => theme.primary}; }
+    }
+  }
+  
+  &.system {
+    background-color: ${({ theme }) => `${theme.primary}1a`};
+    border-left: 3px solid ${({ theme }) => theme.primary};
+    font-style: italic;
+    font-size: 13px;
+  }
 `
 
 export const Timestamp = styled.span`
@@ -80,22 +102,23 @@ export const InputContainer = styled.div<{ isLoading: boolean }>`
   padding: 16px;
   border-top: 1px solid ${({ theme }) => theme.border};
   display: flex;
-  gap: 8px;
+  gap: 10px;
   background: ${({ theme }) => theme.paper};
-  border-radius: 0 0 8px 8px;
+  border-radius: 0 0 12px 12px;
   transition: all 0.3s ease;
 
   input {
     flex: 1;
-    padding: 10px 14px;
+    padding: 12px 18px;
     border: 1px solid ${({ theme }) => theme.border};
-    border-radius: 20px;
+    border-radius: 24px;
     background: ${({ theme }) => theme.background};
     color: ${({ theme }) => theme.text};
     outline: none;
     transition: all 0.3s ease;
     opacity: ${props => props.isLoading ? 0.7 : 1};
     pointer-events: ${props => props.isLoading ? 'none' : 'auto'};
+    font-size: 14px;
 
     &:focus {
       border-color: ${({ theme }) => theme.primary};
@@ -104,24 +127,28 @@ export const InputContainer = styled.div<{ isLoading: boolean }>`
   }
 
   button {
-    padding: 10px 20px;
+    padding: 12px 24px;
     background: ${({ theme }) => theme.active};
     color: ${({ theme }) => theme.text};
-    border: 1px solid ${({ theme }) => theme.border};
-    border-radius: 20px;
+    border: none;
+    border-radius: 24px;
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 500;
     opacity: ${props => props.isLoading ? 0.7 : 1};
     pointer-events: ${props => props.isLoading ? 'none' : 'auto'};
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-size: 14px;
 
     &:hover {
       opacity: 0.9;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     &:active {
       transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
   }
 `
@@ -142,6 +169,18 @@ export const ChatTitle = styled.h2`
   font-size: 16px;
   color: ${({ theme }) => theme.text};
   transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  
+  .agent-badge {
+    margin-left: 8px;
+    background-color: #4CAF50;
+    color: white;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 400;
+  }
 `
 
 export const ClearButton = styled.button`
@@ -156,5 +195,22 @@ export const ClearButton = styled.button`
 
   &:hover {
     background: ${({ theme }) => theme.active};
+  }
+`
+
+// Agent mode toggle button
+export const AgentModeToggle = styled.button<{ active: boolean }>`
+  background: ${props => props.active ? '#4CAF50' : '#cccccc'};
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: white;
+  font-size: 12px;
+  margin-right: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: ${props => props.active ? '#3e8e41' : '#aaaaaa'};
   }
 ` 

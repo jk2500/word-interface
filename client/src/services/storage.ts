@@ -21,7 +21,7 @@ export const StorageService = {
       formats
     }
     localStorage.setItem(STORAGE_KEYS.DOCUMENT, JSON.stringify(state))
-    MetadataService.updateLastModified()
+    // Note: we're explicitly handling metadata separately to avoid title resets
   },
 
   loadDocument(): DocumentState {

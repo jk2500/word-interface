@@ -39,6 +39,20 @@ export interface DocumentContext {
 }
 
 export interface DocumentContextUpdate {
-  type: 'SELECTION_CHANGE' | 'CONTENT_CHANGE' | 'FORMAT_CHANGE'
+  type: 'SELECTION_CHANGE' | 'CONTENT_CHANGE' | 'FORMAT_CHANGE' | 'EDIT_TEXT'
   context: Partial<DocumentContext>
+  editData?: {
+    oldText?: string
+    newText?: string
+    selectionStart?: number
+    selectionEnd?: number
+  }
+}
+
+interface TextFormat {
+  isBold: boolean;
+  isItalic: boolean;
+  isUnderline: boolean;
+  font: string;
+  [key: string]: boolean | string;
 } 
