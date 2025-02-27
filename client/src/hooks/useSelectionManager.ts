@@ -1,6 +1,7 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useMemo } from 'react'
 import { Editor, Range, Transforms } from 'slate'
 import { ReactEditor } from 'slate-react'
+import { produce } from 'immer'
 
 /**
  * Custom hook to manage editor selection state with improved performance
@@ -30,22 +31,28 @@ export function useSelectionManager(editor: Editor) {
     
     const { selection } = editor
     if (selection && !Range.isCollapsed(selection)) {
-      // Store a deep copy of the selection to avoid reference issues
-      selectionRef.current = JSON.parse(JSON.stringify(selection))
+      // Make a deep copy of the selection without using JSON methods
+      // This is much more performant than JSON.parse(JSON.stringify())
+      selectionRef.current = produce(selection, draft => {
+        // Immutable copy is created by immer, no need to modify
+      })
     }
   }, [editor])
 
   // Restore selection on focus with improved error handling
   const handleFocus = useCallback(() => {
-    if (!selectionRef.current || !isMountedRef.current) return
+    const selection = selectionRef.current
+    if (!selection || !isMountedRef.current) return
     
     try {
-      // Check if the selection point is valid before trying to restore it
-      const isValidPoint = Editor.hasPath(editor, selectionRef.current.anchor.path) &&
-                        Editor.hasPath(editor, selectionRef.current.focus.path)
-      
-      if (isValidPoint) {
-        Transforms.select(editor, selectionRef.current)
+      // Performant check if selection is still valid
+      if (selectionIsValid(editor, selection)) {
+        // Use requestAnimationFrame for smoother UI
+        requestAnimationFrame(() => {
+          if (isMountedRef.current) {
+            Transforms.select(editor, selection)
+          }
+        })
       } else {
         selectionRef.current = null
       }
@@ -58,22 +65,40 @@ export function useSelectionManager(editor: Editor) {
     }
   }, [editor])
 
-  // Handle editor blur with improved targeting
+  // Check if a selection is still valid in the editor
+  const selectionIsValid = (editor: Editor, selection: Range): boolean => {
+    try {
+      return (
+        Editor.hasPath(editor, selection.anchor.path) &&
+        Editor.hasPath(editor, selection.focus.path)
+      )
+    } catch (error) {
+      return false
+    }
+  }
+
+  // Handle editor blur with improved targeting and performance
   const handleEditorBlur = useCallback((event: React.FocusEvent) => {
     if (!isMountedRef.current) return
     
-    // More efficient selector
+    // Use element lookup by ID if possible, which is faster
     const chatContainer = document.querySelector('.chat-container')
     if (!chatContainer) return
     
-    // Check if the new focus target is within the chat interface
-    if (chatContainer.contains(event.relatedTarget as Node)) {
+    // Check if the related target is within chat container
+    const relatedTarget = event.relatedTarget as Node
+    if (chatContainer.contains(relatedTarget)) {
       event.preventDefault()
       
       // Only try to refocus if we have a valid selection
       try {
-        if (editor.selection && Editor.hasPath(editor, editor.selection.anchor.path)) {
-          ReactEditor.focus(editor)
+        if (editor.selection) {
+          // Use requestAnimationFrame for smoother UI
+          requestAnimationFrame(() => {
+            if (isMountedRef.current && selectionIsValid(editor, editor.selection!)) {
+              ReactEditor.focus(editor)
+            }
+          })
         }
       } catch (error) {
         // Only log in development
@@ -99,10 +124,11 @@ export function useSelectionManager(editor: Editor) {
     }
   }, [handleSelectionChange])
 
-  return { 
+  // Return memoized object to prevent unnecessary rerenders in consumers
+  return useMemo(() => ({ 
     selectionRef, 
     handleSelectionChange, 
     handleFocus,
     handleEditorBlur
-  }
+  }), [handleSelectionChange, handleFocus, handleEditorBlur])
 }

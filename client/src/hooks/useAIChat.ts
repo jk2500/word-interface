@@ -2,10 +2,10 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { StorageService } from '../services/storage'
 import { ChatMessage, ChatHistoryItem, AIChat } from '../types/chat'
 import { AIService, SYSTEM_PROMPT } from '../services/ai'
-import { APIService } from '../services/api'
-import { DocumentContext } from '../types/document'
+import { useAIDocumentContext } from '../contexts/DocumentContext'
 import { BaseMessage } from '@langchain/core/messages'
 import { HumanMessage, AIMessage, SystemMessage } from '@langchain/core/messages'
+import { createChatMessage, chatMessageToHistoryItem } from '../utils/chat'
 
 // Maximum number of messages to store in local state before pruning
 const MAX_MESSAGES = 50
@@ -13,43 +13,42 @@ const MAX_MESSAGES = 50
 /**
  * Custom hook to manage AI chat functionality with LangChain integration
  */
-export function useAIChat(documentContext: DocumentContext): AIChat {
+export function useAIChat(): AIChat {
+  // Get document context directly from the specialized hook
+  const documentContext = useAIDocumentContext();
+  
   // Store chat messages
   const [messages, setMessages] = useState<ChatMessage[]>(() => 
     StorageService.getMessages()
-  )
-  const [isLoading, setIsLoading] = useState(false)
-  const [streamingMessage, setStreamingMessage] = useState<ChatMessage | null>(null)
+  );
+  const [isLoading, setIsLoading] = useState(false);
   
-  // Track previous document context to avoid recreating agent unnecessarily
-  const prevDocumentContextRef = useRef<string>('')
-  const currentDocContextKey = useMemo(() => 
-    JSON.stringify({
-      title: documentContext.documentTitle,
-      totalWords: documentContext.totalWords,
-      // Exclude full document content to reduce unnecessary agent recreation
-    }),
-    [documentContext.documentTitle, documentContext.totalWords]
-  )
-  
-  // Create LangChain document agent only when document context significantly changes
+  // Create LangChain document agent with memoization
   const documentAgent = useMemo(() => {
-    // If context hasn't meaningfully changed, don't recreate agent
-    if (prevDocumentContextRef.current === currentDocContextKey) {
-      return AIService.getExistingAgent() || AIService.createDocumentAgent(documentContext)
-    }
-    
-    // Update ref and create new agent
-    prevDocumentContextRef.current = currentDocContextKey
-    return AIService.createDocumentAgent(documentContext)
-  }, [documentContext, currentDocContextKey])
+    // Add the required currentFormat property if it's missing
+    const contextWithFormat = {
+      ...documentContext,
+      currentFormat: documentContext.currentFormat || {
+        isBold: false,
+        isItalic: false,
+        isUnderline: false,
+        font: 'Arial'
+      }
+    };
+    return AIService.createDocumentAgent(contextWithFormat);
+  }, [
+    documentContext.selectedText,
+    documentContext.currentParagraph,
+    documentContext.fullContent,
+    documentContext.documentTitle
+  ]);
   
   // Save messages with debouncing
-  const saveMessagesTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const saveMessagesTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     // Clear any existing timeout
     if (saveMessagesTimeoutRef.current) {
-      clearTimeout(saveMessagesTimeoutRef.current)
+      clearTimeout(saveMessagesTimeoutRef.current);
     }
     
     // Set a new timeout to save messages after 500ms of inactivity
@@ -57,18 +56,18 @@ export function useAIChat(documentContext: DocumentContext): AIChat {
       // Prune messages if they exceed the maximum
       const prunedMessages = messages.length > MAX_MESSAGES
         ? messages.slice(-MAX_MESSAGES)
-        : messages
+        : messages;
         
-      StorageService.saveMessages(prunedMessages)
-    }, 500)
+      StorageService.saveMessages(prunedMessages);
+    }, 500);
     
     // Clean up timeout on unmount
     return () => {
       if (saveMessagesTimeoutRef.current) {
-        clearTimeout(saveMessagesTimeoutRef.current)
+        clearTimeout(saveMessagesTimeoutRef.current);
       }
-    }
-  }, [messages])
+    };
+  }, [messages]);
   
   /**
    * Extract conversation messages for AI context in a reusable way
@@ -80,8 +79,8 @@ export function useAIChat(documentContext: DocumentContext): AIChat {
       msg.sender === 'user' || 
       msg.sender === 'ai' || 
       (includeSystemMessages && msg.sender === 'system')
-    )
-  }, [messages])
+    );
+  }, [messages]);
   
   /**
    * Convert chat messages to LangChain message format
@@ -90,204 +89,102 @@ export function useAIChat(documentContext: DocumentContext): AIChat {
     // Add system prompt first
     const result: BaseMessage[] = [
       new SystemMessage(SYSTEM_PROMPT.trim())
-    ]
+    ];
     
     // Then add conversation history
     return [
       ...result,
       ...getConversationMessages().map(msg => {
         if (msg.sender === 'user') {
-          return new HumanMessage(msg.text)
+          return new HumanMessage(msg.text);
         } else {
-          return new AIMessage(msg.text)
+          return new AIMessage(msg.text);
         }
       })
-    ]
-  }, [getConversationMessages])
+    ];
+  }, [getConversationMessages]);
   
   /**
    * Convert chat messages to AI service format with document context using MCP
    * (Legacy format for API compatibility)
    */
-  const getChatHistory = useCallback((documentContext: DocumentContext): ChatHistoryItem[] => {
+  const getChatHistory = useCallback((): ChatHistoryItem[] => {
     // Create the initial system prompt message
     const systemPromptMessage: ChatHistoryItem = {
       role: 'system',
       content: SYSTEM_PROMPT.trim()
-    }
+    };
   
-    // Convert existing messages to history
-    const conversationHistory: ChatHistoryItem[] = getConversationMessages().map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.text
-    }))
+    // Convert existing messages to history using utility function
+    const conversationHistory: ChatHistoryItem[] = getConversationMessages()
+      .map(chatMessageToHistoryItem);
   
+    // Add the required currentFormat property if it's missing
+    const contextWithFormat = {
+      ...documentContext,
+      currentFormat: documentContext.currentFormat || {
+        isBold: false, 
+        isItalic: false,
+        isUnderline: false,
+        font: 'Arial'
+      }
+    };
+    
     // Create structured document context message using MCP
-    const documentContextMessage = AIService.getContextualPrompt(documentContext)
+    const documentContextMessage = AIService.getContextualPrompt(contextWithFormat);
   
-    return [systemPromptMessage, ...conversationHistory, documentContextMessage]
-  }, [getConversationMessages])
+    return [systemPromptMessage, ...conversationHistory, documentContextMessage];
+  }, [getConversationMessages, documentContext]);
   
   /**
    * Send a message to the AI service using LangChain
    */
   const sendMessage = useCallback(async (messageText: string) => {
-    if (!messageText.trim() || isLoading) return
+    if (!messageText.trim() || isLoading) return;
     
-    setIsLoading(true)
+    setIsLoading(true);
     
     try {
-      // Add user message to chat
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: messageText,
-        sender: 'user',
-        timestamp: Date.now()
-      }
-      
-      setMessages(prev => [...prev, userMessage])
+      // Add user message to chat using utility function
+      const userMessage = createChatMessage(messageText, 'user');
+      setMessages(prev => [...prev, userMessage]);
       
       // Prepare LangChain messages with limited history
-      const chatHistory = getLangChainMessages().slice(-10) // Limit history to last 10 messages
+      const chatHistory = getLangChainMessages().slice(-10); // Limit history to last 10 messages
       
-      // Invoke the document agent with new message
-      const response = await documentAgent.invoke({
-        input: messageText,
-        chat_history: chatHistory
-      })
+      // Use centralized AIService.executeAgent method
+      const response = await AIService.executeAgent(
+        documentAgent, 
+        messageText, 
+        chatHistory
+      );
       
-      // Create AI message from response
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        text: response,
-        sender: 'ai',
-        timestamp: Date.now()
-      }
+      // Create AI message from response using utility function
+      const aiMessage = createChatMessage(response, 'ai');
+      setMessages(prev => [...prev, aiMessage]);
       
-      setMessages(prev => [...prev, aiMessage])
-      return aiMessage
+      return aiMessage;
     } catch (error: any) {
-      console.error('Error getting AI response:', error)
+      console.error('Error getting AI response:', error);
       
-      // Add error message to chat
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: `Error: ${error.message || 'Failed to get AI response'}`,
-        sender: 'system',
-        timestamp: Date.now()
-      }
+      // Add error message to chat using utility function
+      const errorMessage = createChatMessage(
+        `Error: ${error.message || 'Failed to get AI response'}`,
+        'system'
+      );
       
-      setMessages(prev => [...prev, errorMessage])
-      throw error
+      setMessages(prev => [...prev, errorMessage]);
+      throw error;
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }, [isLoading, documentAgent, getLangChainMessages])
-
-  /**
-   * Stream a message from the AI service with word-by-word updates
-   * (Uses legacy API for now until LangChain streaming is implemented)
-   */
-  const streamMessage = useCallback((messageText: string, existingUserMessageId?: string) => {
-    if (!messageText.trim() || isLoading) return
-    
-    setIsLoading(true)
-    
-    // Only add user message if we don't have an existing ID
-    if (!existingUserMessageId) {
-      // Add user message to chat
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: messageText,
-        sender: 'user',
-        timestamp: Date.now()
-      }
-      
-      setMessages(prev => [...prev, userMessage])
-    }
-    
-    // Create initial streaming message
-    const streamMsg: ChatMessage = {
-      id: (Date.now() + 2).toString(),
-      text: '',
-      sender: 'ai',
-      timestamp: Date.now(),
-      streaming: true
-    }
-    
-    setStreamingMessage(streamMsg)
-    
-    // Use a local buffer for more efficient string building during streaming
-    let textBuffer = ''
-    
-    // Get chat history with limited context
-    const history = getChatHistory(documentContext)
-    
-    // Setup stream callbacks
-    const handleChunk = (content: string) => {
-      // Update buffer first (more efficient than string concatenation in setState)
-      textBuffer += content
-      
-      // Update streaming message with full buffer content
-      setStreamingMessage(prev => {
-        if (!prev) return null
-        return {
-          ...prev,
-          text: textBuffer
-        }
-      })
-    }
-    
-    const handleComplete = () => {
-      setStreamingMessage(prev => {
-        if (!prev) return null
-        
-        // Process commands in the complete message
-        const completeMessage = {
-          ...prev,
-          streaming: false
-        }
-        
-        // Add to messages
-        setMessages(messages => [...messages, completeMessage])
-        setIsLoading(false)
-        return null
-      })
-    }
-    
-    const handleError = (error: Error) => {
-      console.error('Streaming error:', error)
-      setMessages(prev => [
-        ...prev, 
-        {
-          id: Date.now().toString(),
-          text: `Error: ${error.message || 'Failed to get AI response'}`,
-          sender: 'system',
-          timestamp: Date.now()
-        }
-      ])
-      setStreamingMessage(null)
-      setIsLoading(false)
-    }
-    
-    // Start streaming
-    APIService.streamMessage(
-      messageText,
-      history,
-      handleChunk,
-      handleComplete,
-      handleError
-    )
-  }, [isLoading, getChatHistory, documentContext])
+  }, [isLoading, documentAgent, getLangChainMessages]);
 
   return {
     messages,
     setMessages,
     isLoading,
-    streamingMessage,
-    sendMessage,
-    streamMessage,
-    getChatHistory,
-    documentAgent
-  }
+    documentAgent,
+    sendMessage
+  };
 }

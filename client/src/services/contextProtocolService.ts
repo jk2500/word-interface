@@ -12,13 +12,13 @@ export class ContextProtocolService {
   /**
    * Creates an MCP object according to Anthropic's schema
    * @param document The Slate document nodes
-   * @param metadata Document metadata
+   * @param metadata Document metadata or null
    * @param selection Current selection information
    * @returns Formatted MCP JSON string
    */
   static createAnthropicMCP(
     document: Descendant[],
-    metadata: DocumentMetadata,
+    metadata: DocumentMetadata | null,
     selection: {
       text: string,
       paragraph: string,
@@ -36,11 +36,11 @@ export class ContextProtocolService {
       type: "document_data",
       version: "0.0.1",
       metadata: {
-        title: metadata.title || "Untitled Document",
-        id: metadata.id,
-        created_at: new Date(metadata.createdAt).toISOString(),
-        updated_at: new Date(metadata.lastModified).toISOString(),
-        document_version: metadata.version.toString(),
+        title: metadata?.title || "Untitled Document",
+        id: metadata?.id || "unknown",
+        created_at: metadata?.createdAt ? new Date(metadata.createdAt).toISOString() : new Date().toISOString(),
+        updated_at: metadata?.lastModified ? new Date(metadata.lastModified).toISOString() : new Date().toISOString(),
+        document_version: metadata?.version?.toString() || "1",
         total_paragraphs: structure.paragraphCount,
         total_words: structure.wordCount
       },

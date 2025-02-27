@@ -42,7 +42,7 @@ export function useEnhancedDocumentContext() {
 
       updateContext({
         type: 'CONTENT_CHANGE',
-        context: {
+        payload: {
           totalWords: countWords(value),
           currentParagraph: paragraphText,
           fullContent: JSON.stringify(value)
@@ -53,7 +53,7 @@ export function useEnhancedDocumentContext() {
       // Provide fallback update without paragraph text
       updateContext({
         type: 'CONTENT_CHANGE',
-        context: {
+        payload: {
           totalWords: countWords(value),
           currentParagraph: '',
           fullContent: JSON.stringify(value)
@@ -68,7 +68,7 @@ export function useEnhancedDocumentContext() {
   const updateDocumentSelection = useCallback((selectedText: string) => {
     updateContext({
       type: 'SELECTION_CHANGE',
-      context: {
+      payload: {
         selectedText
       }
     })
@@ -93,7 +93,7 @@ export function useEnhancedDocumentContext() {
     
     updateContext({
       type: 'FORMAT_CHANGE',
-      context: {
+      payload: {
         currentFormat: completeFormat
       }
     })

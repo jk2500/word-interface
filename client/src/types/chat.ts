@@ -1,3 +1,5 @@
+import { RunnableSequence } from '@langchain/core/runnables'
+
 export interface ChatMessage {
   id: string
   text: string
@@ -15,21 +17,23 @@ export interface AIChat {
   messages: ChatMessage[]
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   isLoading: boolean
-  streamingMessage: ChatMessage | null
-  sendMessage: (messageText: string) => Promise<ChatMessage | undefined>
-  streamMessage: (messageText: string, existingUserMessageId?: string) => void
-  getChatHistory: (documentContext: any) => ChatHistoryItem[]
-  documentAgent: any
+  documentAgent: RunnableSequence<any, string>
+  sendMessage: (text: string) => Promise<ChatMessage | undefined>
 }
+
+// Use constants object for chat commands to avoid duplication
+export const CHAT_COMMANDS = {
+  FORMAT: "/format",
+  HELP: "/help",
+  EDIT: "/edit",
+  ANALYZE: "/analyze",
+  WRITE: "/write",
+  INSERT: "/insert",
+  REPLACE: "/replace"
+} as const;
 
 export interface ChatCommands {
   handleCommand: (command: string, args: string) => string | null
-  executeWithAgent: (agent: any, commandText: string) => Promise<string>
-  COMMANDS: {
-    readonly FORMAT: "/format"
-    readonly HELP: "/help"
-    readonly EDIT: "/edit"
-    readonly ANALYZE: "/analyze"
-    readonly WRITE: "/write"
-  }
-} 
+  executeWithAgent: (agent: any, commandText: string, chatHistory?: any[]) => Promise<string>
+  COMMANDS: typeof CHAT_COMMANDS
+}

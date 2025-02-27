@@ -1,126 +1,115 @@
-import React, { createContext, useContext, useReducer, useCallback, useMemo } from 'react'
-import { DocumentContext, DocumentContextUpdate } from '../types/document'
-import { MetadataService } from '../services/metadataService'
+import React, { 
+  createContext, 
+  useContext, 
+  useReducer, 
+  useMemo, 
+  ReactNode,
+  useCallback
+} from 'react';
+import { DocumentContext as DocumentContextType, ActionType } from '../types/document';
 
-const initialContext: DocumentContext = {
+// Default state for the document context
+const defaultDocumentContext: DocumentContextType = {
   selectedText: '',
   currentParagraph: '',
+  fullContent: '',
   fullDocument: '',
-  documentTitle: MetadataService.load().title,
-  lastEdit: new Date(),
+  documentTitle: 'Untitled Document',
   totalWords: 0,
+  lastEdit: new Date().toISOString(),
+  hasSaved: false,
   currentFormat: {
     isBold: false,
     isItalic: false,
     isUnderline: false,
     font: 'Arial'
   }
-}
+};
 
+
+// Create a context for our document data
 const DocumentContextContext = createContext<{
-  documentContext: DocumentContext
-  updateContext: (update: DocumentContextUpdate) => void
+  documentContext: DocumentContextType;
+  updateContext: (action: ActionType) => void;
 }>({
-  documentContext: initialContext,
-  updateContext: () => {}
-})
+  documentContext: defaultDocumentContext,
+  updateContext: () => {},
+});
 
-export const useDocumentContext = () => useContext(DocumentContextContext)
-
-// Separate selectors for consuming only specific parts of context
-export const useDocumentTitle = () => {
-  const { documentContext } = useContext(DocumentContextContext)
-  return documentContext.documentTitle
-}
-
-export const useDocumentFormat = () => {
-  const { documentContext } = useContext(DocumentContextContext)
-  return documentContext.currentFormat
-}
-
-export const useDocumentSelection = () => {
-  const { documentContext } = useContext(DocumentContextContext)
-  return {
-    selectedText: documentContext.selectedText,
-    currentParagraph: documentContext.currentParagraph
+// Reducer function to handle context updates
+function documentContextReducer(
+  state: DocumentContextType,
+  action: ActionType
+): DocumentContextType {
+  switch (action.type) {
+    case 'SELECTION_CHANGE':
+      return { ...state, ...action.payload };
+    case 'CONTENT_CHANGE':
+      return { ...state, ...action.payload };
+    case 'TITLE_CHANGE':
+      return { ...state, ...action.payload };
+    case 'SAVE_STATE_CHANGE':
+      return { ...state, ...action.payload };
+    default:
+      return state;
   }
 }
 
-export const DocumentContextProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Provider component that wraps parts of our app that need the document context
+export const DocumentContextProvider: React.FC<{children: ReactNode}> = ({ children }) => {
   const [documentContext, dispatch] = useReducer(
-    (state: DocumentContext, update: DocumentContextUpdate) => {
-      // Only log in development environment
-      if (process.env.NODE_ENV === 'development') {
-        console.log('DocumentContext - Update Type:', update.type)
-      }
-      
-      switch (update.type) {
-        case 'SELECTION_CHANGE': {
-          // Only update if selection actually changed
-          const newSelection = update.context.selectedText
-          if (newSelection === state.selectedText) {
-            return state // No change, return same state to prevent re-renders
-          }
-          return { ...state, ...update.context }
-        }
-        case 'CONTENT_CHANGE': {
-          const newState = { 
-            ...state, 
-            ...update.context,
-            lastEdit: new Date()
-          }
-          return newState
-        }
-        case 'FORMAT_CHANGE': {
-          // Only update if format actually changed
-          const currentFormat = state.currentFormat
-          const newFormat = update.context.currentFormat
-          
-          if (
-            newFormat && 
-            currentFormat.isBold === newFormat.isBold &&
-            currentFormat.isItalic === newFormat.isItalic &&
-            currentFormat.isUnderline === newFormat.isUnderline &&
-            currentFormat.font === newFormat.font
-          ) {
-            return state // No change, return same state to prevent re-renders
-          }
-          
-          return {
-            ...state,
-            currentFormat: {
-              ...currentFormat,
-              ...newFormat
-            }
-          }
-        }
-        case 'EDIT_TEXT': {
-          return { 
-            ...state, 
-            ...update.context,
-            lastEdit: new Date()
-          }
-        }
-        default:
-          return state
-      }
-    },
-    initialContext
-  )
+    documentContextReducer,
+    defaultDocumentContext
+  );
 
-  const updateContext = useCallback((update: DocumentContextUpdate) => {
-    dispatch(update)
-  }, [])
+  // Memoize the context value to prevent unnecessary re-renders
+  const updateContext = useCallback((action: ActionType) => {
+    dispatch(action);
+  }, []);
 
-  // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     documentContext,
-    updateContext
-  }), [documentContext, updateContext])
+    updateContext,
+  }), [documentContext, updateContext]);
 
   return (
     <DocumentContextContext.Provider value={contextValue}>
       {children}
     </DocumentContextContext.Provider>
-  )
-} 
+  );
+};
+
+// Hook to use the document context
+export const useDocumentContext = () => {
+  const context = useContext(DocumentContextContext);
+  if (!context) {
+    throw new Error('useDocumentContext must be used within a DocumentContextProvider');
+  }
+  return context;
+};
+
+// Specialized hook for AI-specific document context usage
+export const useAIDocumentContext = () => {
+  const { documentContext } = useContext(DocumentContextContext);
+  
+  // Return only the properties needed for AI context, including currentFormat
+  return useMemo(() => ({
+    selectedText: documentContext.selectedText,
+    currentParagraph: documentContext.currentParagraph,
+    fullContent: documentContext.fullContent,
+    fullDocument: documentContext.fullDocument,
+    documentTitle: documentContext.documentTitle,
+    totalWords: documentContext.totalWords,
+    lastEdit: documentContext.lastEdit,
+    currentFormat: documentContext.currentFormat
+  }), [
+    documentContext.selectedText,
+    documentContext.currentParagraph,
+    documentContext.fullContent,
+    documentContext.fullDocument,
+    documentContext.documentTitle,
+    documentContext.totalWords,
+    documentContext.lastEdit,
+    documentContext.currentFormat
+  ]);
+};

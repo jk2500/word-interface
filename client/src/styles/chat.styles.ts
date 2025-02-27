@@ -47,17 +47,6 @@ export const MessageBubble = styled.div<{ isUser: boolean }>`
   max-width: 100%;
   transition: all 0.3s ease;
   
-  &.streaming {
-    border-right: 2px solid ${({ theme }) => theme.primary};
-    animation: pulse 1.2s infinite;
-    
-    @keyframes pulse {
-      0% { border-right-color: ${({ theme }) => theme.primary}; }
-      50% { border-right-color: transparent; }
-      100% { border-right-color: ${({ theme }) => theme.primary}; }
-    }
-  }
-  
   &.system {
     background-color: ${({ theme }) => `${theme.primary}1a`};
     border-left: 3px solid ${({ theme }) => theme.primary};
@@ -195,22 +184,5 @@ export const ClearButton = styled.button`
 
   &:hover {
     background: ${({ theme }) => theme.active};
-  }
-`
-
-// Agent mode toggle button
-export const AgentModeToggle = styled.button<{ active: boolean }>`
-  background: ${props => props.active ? '#4CAF50' : '#cccccc'};
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  color: white;
-  font-size: 12px;
-  margin-right: 10px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: ${props => props.active ? '#3e8e41' : '#aaaaaa'};
   }
 ` 

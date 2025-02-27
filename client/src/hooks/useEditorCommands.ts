@@ -19,7 +19,7 @@ export function useEditorCommands(editor: Editor) {
     if (wasReplaced) {
       updateContext({
         type: 'CONTENT_CHANGE',
-        context: {
+        payload: {
           currentParagraph: getCurrentParagraphText(editor),
           fullContent: JSON.stringify(editor.children)
         }
@@ -65,7 +65,7 @@ export function useEditorCommands(editor: Editor) {
       setTimeout(() => {
         updateContext({
           type: 'CONTENT_CHANGE',
-          context: {
+          payload: {
             currentParagraph: getCurrentParagraphText(editor),
             fullContent: JSON.stringify(editor.children)
           }

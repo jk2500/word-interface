@@ -1,19 +1,14 @@
-import { ContextProtocolService } from './contextProtocolService'
-import { MetadataService } from './metadataService'
+import { ContextTransformerService } from './contextTransformerService'
 import { DocumentContext } from '../types/document'
 import { ChatOpenAI } from '@langchain/openai'
 import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts'
 import { RunnablePassthrough, RunnableSequence } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import { formatDocumentAsString } from '../utils/editor'
+import { BaseMessage } from '@langchain/core/messages'
+import { ChatHistoryItem } from '../types/chat'
 
 // Cache for reusing the document agent
 let documentAgentCache: any = null
-
-export interface ChatHistoryItem {
-  role: 'system' | 'user' | 'assistant'
-  content: string
-}
 
 // System prompt that sets up the assistant's role and explains the MCP
 export const SYSTEM_PROMPT = `You are a helpful AI assistant integrated into a document editor.
@@ -66,55 +61,14 @@ export const AIService = {
    * @returns A ChatHistoryItem with the formatted context
    */
   getContextualPrompt(documentContext: DocumentContext): ChatHistoryItem {
-    // Get full document metadata
-    const metadata = MetadataService.load()
+    // Use the centralized ContextTransformerService
+    const mcp = ContextTransformerService.toMCP(documentContext);
     
-    try {
-      // Parse document content from JSON string
-      const documentContent = JSON.parse(documentContext.fullContent || '[]')
-      
-      // Create MCP using Anthropic's schema via the ContextProtocolService
-      const mcp = ContextProtocolService.createAnthropicMCP(
-        documentContent,
-        metadata,
-        {
-          text: documentContext.selectedText || '',
-          paragraph: '', // No longer using current paragraph
-          position: documentContext.selectedText ? 
-            (documentContext.fullDocument || '').indexOf(documentContext.selectedText) : 0
-        }
-      )
-      
-      // Format the context message using Claude's XML-style wrapper for tool use
-      return {
-        role: 'system',
-        content: `<document_context>\n${mcp}\n</document_context>\n\nThe above is the current document context in MCP format. Use this information to provide relevant assistance to the user.`
-      }
-    } catch (error) {
-      console.error('Error creating MCP:', error)
-      
-      // Fallback to simpler context format if JSON parsing fails
-      return {
-        role: 'system',
-        content: `
-        <document_context>
-        {
-          "type": "document_data",
-          "metadata": {
-            "title": "${metadata.title || 'Untitled Document'}",
-            "updated_at": "${new Date(metadata.lastModified).toISOString()}"
-          },
-          "ui_state": {
-            "current_selection": "${documentContext.selectedText || ''}",
-            "full_document": "${documentContext.fullDocument || ''}",
-            "cursor_position": null
-          }
-        }
-        </document_context>
-        
-        This is the current document you're helping with. Please reference this context when providing assistance.`
-      }
-    }
+    // Format the context message using Claude's XML-style wrapper for tool use
+    return {
+      role: 'system',
+      content: `<document_context>\n${mcp}\n</document_context>\n\nThe above is the current document context in MCP format. Use this information to provide relevant assistance to the user.`
+    };
   },
 
   /**
@@ -122,7 +76,7 @@ export const AIService = {
    * @returns Cached agent or null
    */
   getExistingAgent() {
-    return documentAgentCache
+    return documentAgentCache;
   },
   
   /**
@@ -132,7 +86,7 @@ export const AIService = {
    */
   createDocumentAgent(documentContext: DocumentContext) {
     // Get the model
-    const model = getModel()
+    const model = getModel();
     
     // Create a prompt template for the document agent
     const prompt = ChatPromptTemplate.fromMessages([
@@ -140,7 +94,7 @@ export const AIService = {
       new MessagesPlaceholder("chat_history"),
       ["system", "{document_context}"],
       ["human", "{input}"]
-    ])
+    ]);
     
     // Create the agent chain with optimized context handling
     const chain = RunnableSequence.from([
@@ -148,23 +102,47 @@ export const AIService = {
         input: new RunnablePassthrough(),
         chat_history: () => [], // This will be populated from useAIChat
         document_context: async () => {
-          // Cache document context to avoid regenerating it for similar requests
-          const contextKey = `${documentContext.documentTitle}-${documentContext.lastEdit.getTime()}`
-          
           // Use cached context or generate new one
-          const contextMessage = AIService.getContextualPrompt(documentContext)
-          return contextMessage.content
+          const contextMessage = this.getContextualPrompt(documentContext);
+          return contextMessage.content;
         }
       },
       prompt,
       model,
       new StringOutputParser()
-    ])
+    ]);
     
     // Cache the agent for reuse
-    documentAgentCache = chain
+    documentAgentCache = chain;
     
-    return chain
+    return chain;
+  },
+
+  /**
+   * Executes an AI agent with the given message and context
+   * @param agent The runnable agent to execute
+   * @param message User's message
+   * @param chatHistory Optional chat history in LangChain format
+   * @param documentContext Current document context
+   * @returns Promise with the agent's response
+   */
+  async executeAgent(
+    agent: RunnableSequence, 
+    message: string,
+    chatHistory: BaseMessage[] = []
+  ): Promise<string> {
+    try {
+      // Invoke the agent with message and chat history
+      const response = await agent.invoke({
+        input: message,
+        chat_history: chatHistory
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Error executing agent:', error);
+      throw error;
+    }
   },
 
   /**
@@ -173,7 +151,7 @@ export const AIService = {
    */
   createEditorChain() {
     // Get the Anthropic model
-    const model = getModel()
+    const model = getModel();
     
     // Create a prompt template for editing
     const editPrompt = ChatPromptTemplate.fromMessages([
@@ -191,7 +169,7 @@ export const AIService = {
        Instructions: {instruction}
        
        Please edit the text according to these instructions. Return only the edited text.`]
-    ])
+    ]);
     
     // Create the editor chain
     const editChain = RunnableSequence.from([
@@ -202,9 +180,9 @@ export const AIService = {
       editPrompt,
       model,
       new StringOutputParser()
-    ])
+    ]);
     
-    return editChain
+    return editChain;
   },
   
   /**
@@ -216,18 +194,18 @@ export const AIService = {
   async getEditing(selectedText: string, instruction: string): Promise<string> {
     try {
       // Create and use the editor chain
-      const editChain = this.createEditorChain()
+      const editChain = this.createEditorChain();
       
       // Invoke the chain with the text and instruction
       const result = await editChain.invoke({
         text: selectedText,
         instruction: instruction
-      })
+      });
       
-      return result
+      return result;
     } catch (error) {
-      console.error('Error in getEditing:', error)
-      throw error
+      console.error('Error in getEditing:', error);
+      throw error;
     }
   }
 }

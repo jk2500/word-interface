@@ -8,17 +8,16 @@
   ],
   "scripts": {
     "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
-    "start:client": "cd client && npm start",
-    "start:server": "cd server && npm run dev",
-    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
-    "build": "cd client && npm run build",
-    "clean": "rm -rf node_modules && rm -rf client/node_modules && rm -rf server/node_modules"
+    "start:client": "npm run start --workspace=client",
+    "start:server": "npm run dev --workspace=server",
+    "install:all": "npm install",
+    "build": "npm run build --workspace=client && npm run build --workspace=server",
+    "clean": "rm -rf node_modules && rm -rf client/node_modules && rm -rf server/node_modules",
+    "lint": "npm run lint --workspace=server && npm run lint --workspace=client",
+    "test": "npm run test --workspace=client && npm run test --workspace=server"
   },
   "devDependencies": {
-    "concurrently": "^8.0.0"
-  },
-  "dependencies": {
-    "@langchain/anthropic": "^0.3.14",
-    "langchain": "^0.3.19"
+    "concurrently": "^8.0.0",
+    "typescript": "^5.3.3"
   }
 }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useMemo } from 'react'
 import { Descendant } from 'slate'
 import { Slate, Editable } from 'slate-react'
 import { Toolbar } from './Toolbar'
@@ -28,30 +28,66 @@ export const DocumentEditor: React.FC = () => {
   // Initialize editor commands handler
   const { isStreaming } = useEditorCommands(editor)
 
+  // Cache for word count and serialized content to prevent unnecessary updates
+  const contentCache = React.useRef({
+    wordCount: 0,
+    serializedContent: '',
+    currentParagraph: ''
+  })
+
   // Load metadata and update context
   useEffect(() => {
     const metadata = MetadataService.load()
     updateContext({
-      type: 'CONTENT_CHANGE',
-      context: {
+      type: 'TITLE_CHANGE',
+      payload: {
         documentTitle: metadata.title
       }
     })
   }, [updateContext])
 
-  // Handle content changes
+  // Handle content changes with optimized updates
   const handleContentChange = useCallback((value: Descendant[]) => {
     setValue(value)
-    debouncedSave(value, currentFont, formats)
     
-    updateContext({
-      type: 'CONTENT_CHANGE',
-      context: {
-        totalWords: countWords(value),
-        currentParagraph: getCurrentParagraphText(editor),
-        fullContent: JSON.stringify(value)
+    // Only save to storage when content actually changes
+    const serialized = JSON.stringify(value)
+    if (serialized !== contentCache.current.serializedContent) {
+      debouncedSave(value, currentFont, formats)
+      
+      // Only calculate expensive operations when needed
+      const currentParagraph = getCurrentParagraphText(editor)
+      const wordCount = countWords(value)
+      
+      // Check if values have actually changed before updating context
+      const hasWordCountChanged = wordCount !== contentCache.current.wordCount
+      const hasParagraphChanged = currentParagraph !== contentCache.current.currentParagraph
+      const hasContentChanged = serialized !== contentCache.current.serializedContent
+      
+      // Update cache
+      contentCache.current = {
+        wordCount,
+        serializedContent: serialized,
+        currentParagraph
       }
-    })
+      
+      // Only update context if something has actually changed
+      if (hasWordCountChanged || hasParagraphChanged || hasContentChanged) {
+        const updates: any = {}
+        
+        if (hasWordCountChanged) updates.totalWords = wordCount
+        if (hasParagraphChanged) updates.currentParagraph = currentParagraph
+        if (hasContentChanged) {
+          updates.fullContent = serialized
+          updates.lastEdit = new Date().toISOString()
+        }
+        
+        updateContext({
+          type: 'CONTENT_CHANGE',
+          payload: updates
+        })
+      }
+    }
   }, [setValue, debouncedSave, currentFont, formats, updateContext, editor])
 
   // Memoize render callbacks
@@ -91,6 +127,12 @@ export const DocumentEditor: React.FC = () => {
     return <span {...props.attributes}>{children}</span>
   }, [])
 
+  // Memoize style for editor
+  const editorStyle = useMemo(() => ({ 
+    fontFamily: getCurrentFont() || 'inherit',
+    minHeight: '100%'
+  }), [getCurrentFont])
+
   return (
     <EditorContainer className={isStreaming ? 'streaming' : ''}>
       <DocumentTitle />
@@ -115,13 +157,9 @@ export const DocumentEditor: React.FC = () => {
           renderElement={renderElement}
           renderLeaf={renderLeaf}
           placeholder="Start typing..."
-          style={{ 
-            fontFamily: getCurrentFont() || 'inherit',
-            minHeight: '100%'
-          }}
+          style={editorStyle}
         />
         
-        {/* Floating toolbar that appears on text selection */}
         <SelectionToolbar 
           editor={editor} 
           selection={editor.selection} 

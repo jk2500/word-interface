@@ -27,7 +27,7 @@ export interface DocumentContext {
   currentParagraph: string
   fullDocument: string
   documentTitle: string
-  lastEdit: Date
+  lastEdit: Date | string
   totalWords: number
   currentFormat: {
     isBold: boolean
@@ -36,17 +36,13 @@ export interface DocumentContext {
     font: string
   }
   fullContent?: string
+  hasSaved?: boolean
 }
 
-export interface DocumentContextUpdate {
-  type: 'SELECTION_CHANGE' | 'CONTENT_CHANGE' | 'FORMAT_CHANGE' | 'EDIT_TEXT'
-  context: Partial<DocumentContext>
-  editData?: {
-    oldText?: string
-    newText?: string
-    selectionStart?: number
-    selectionEnd?: number
-  }
+// Actions for our reducer
+export type ActionType = {
+  type: 'SELECTION_CHANGE' | 'CONTENT_CHANGE' | 'TITLE_CHANGE' | 'SAVE_STATE_CHANGE' | 'FORMAT_CHANGE';
+  payload: Partial<DocumentContext>;
 }
 
 interface TextFormat {

@@ -1,164 +1,92 @@
-import { useCallback } from 'react'
-import { DocumentContext } from '../types/document'
-import { parseEditCommand } from '../utils/editor'
-import { AIService } from '../services/ai'
-import { ChatCommands } from '../types/chat'
+import { useCallback } from 'react';
+import { RunnableSequence } from '@langchain/core/runnables';
+import { useDocumentContext, useAIDocumentContext } from '../contexts/DocumentContext';
+import { parseEditCommand } from '../utils/editor';
+import { AIService } from '../services/ai';
+import { BaseMessage } from '@langchain/core/messages';
+import { CHAT_COMMANDS } from '../types/chat';
 
 /**
- * Custom hook to handle chat commands with optional LangChain agent support
+ * Custom hook to handle chat commands for document editing
  */
-export function useChatCommands(documentContext: DocumentContext): ChatCommands {
-  const COMMANDS = {
-    FORMAT: '/format',
-    HELP: '/help',
-    EDIT: '/edit',
-    ANALYZE: '/analyze',
-    WRITE: '/write'
-  } as const
+export const useChatCommands = () => {
+  // Get document context from the specialized hook
+  const documentContext = useAIDocumentContext();
+  // Get the update context function
+  const { updateContext } = useDocumentContext();
 
   /**
-   * Process command and return appropriate response
+   * Handle a command in the chat
    */
-  const handleCommand = useCallback((command: string, args: string) => {
-    switch (command) {
-      case COMMANDS.FORMAT:
-        return `Current formatting:\n${JSON.stringify(documentContext.currentFormat, null, 2)}`
-      case COMMANDS.HELP:
-        return `Available commands:
-- ${COMMANDS.FORMAT}: Show current formatting
-- ${COMMANDS.EDIT}: Edit selected text (e.g., ${COMMANDS.EDIT} replace "old text" with "new text")
-- ${COMMANDS.WRITE}: Write content at current cursor position (e.g., ${COMMANDS.WRITE} This is new text)
-- ${COMMANDS.ANALYZE}: Analyze document structure and content
-- ${COMMANDS.HELP}: Show this help message`
-      case COMMANDS.ANALYZE:
-        return `Analysis of document:
-- Total words: ${documentContext.totalWords}
-- Current format: ${documentContext.currentFormat.font}, ${
-          documentContext.currentFormat.isBold ? 'bold' : 'normal'
+  const handleCommand = useCallback((command: string, text: string): boolean => {
+    if (!command || !text) return false;
+    
+    const commandLower = command.toLowerCase();
+    
+    switch (commandLower) {
+      case CHAT_COMMANDS.INSERT:
+        // Handle insertion at cursor position
+        if (text && typeof window !== 'undefined') {
+          const event = new CustomEvent('editor-insert-text', { detail: { text } });
+          window.dispatchEvent(event);
+          return true;
         }
-- Last edited: ${documentContext.lastEdit.toLocaleString()}
-- Document title: ${documentContext.documentTitle || 'Untitled Document'}`
-      case COMMANDS.EDIT:
-        // Parse the edit command to extract old and new text
-        const editData = parseEditCommand(args);
-        if (editData) {
-          // Dispatch a custom event to notify the editor
-          const editEvent = new CustomEvent('editCommand', {
-            detail: editData
+        return false;
+        
+      case CHAT_COMMANDS.REPLACE:
+        // Handle replace selected text
+        if (text && documentContext.selectedText && typeof window !== 'undefined') {
+          const event = new CustomEvent('editor-replace-text', { 
+            detail: { oldText: documentContext.selectedText, newText: text } 
           });
-          document.dispatchEvent(editEvent);
-          
-          return `Editing text: replacing "${editData.oldText}" with "${editData.newText}"`;
-        } else {
-          return `Invalid edit command. Try something like:
-- ${COMMANDS.EDIT} replace "old text" with "new text"
-- ${COMMANDS.EDIT} "old text" to "new text"`;
+          window.dispatchEvent(event);
+          return true;
         }
-      case COMMANDS.WRITE:
-        if (!args.trim()) {
-          return `Invalid write command. Please provide the content to write.`;
+        return false;
+        
+      case CHAT_COMMANDS.EDIT:
+        // Handle editing with custom format
+        if (text && typeof window !== 'undefined') {
+          const editCommand = parseEditCommand(text);
+          if (editCommand) {
+            const event = new CustomEvent('editor-replace-text', { 
+              detail: { oldText: editCommand.oldText, newText: editCommand.newText } 
+            });
+            window.dispatchEvent(event);
+            return true;
+          }
         }
+        return false;
         
-        // Dispatch a custom event to notify the editor to insert text at cursor position
-        const writeEvent = new CustomEvent('writeCommand', {
-          detail: { content: args }
-        });
-        document.dispatchEvent(writeEvent);
+      case CHAT_COMMANDS.WRITE:
+        // Handle the write command
+        if (text && typeof window !== 'undefined') {
+          const event = new CustomEvent('writeCommand', { detail: { content: text } });
+          document.dispatchEvent(event);
+          return true;
+        }
+        return false;
         
-        return `Content inserted at cursor position.`;
       default:
-        return null
+        return false;
     }
-  }, [documentContext])
+  }, [documentContext.selectedText]);
   
   /**
-   * Execute commands using LangChain agent
-   * @param agent The document agent from LangChain
-   * @param commandText Full command text
-   * @returns Promise with processing result
+   * Execute an agent with the given message using the centralized AIService
    */
   const executeWithAgent = useCallback(async (
-    agent: any,
-    commandText: string
+    agent: RunnableSequence, 
+    message: string,
+    chatHistory: BaseMessage[] = []
   ): Promise<string> => {
-    try {
-      // Extract command components if it's a command
-      if (commandText.startsWith('/')) {
-        const parts = commandText.split(' ')
-        const command = parts[0]
-        const args = parts.slice(1).join(' ')
-        
-        // Handle standard commands with built-in logic
-        const standardResponse = handleCommand(command, args)
-        if (standardResponse) {
-          return standardResponse
-        }
-        
-        // For edit command with selection, use AI specialized editing
-        if (command === COMMANDS.EDIT && documentContext.selectedText) {
-          const editData = parseEditCommand(args)
-          
-          if (editData) {
-            try {
-              // Use the specialized editor chain
-              const editedText = await AIService.getEditing(
-                documentContext.selectedText,
-                `Replace "${editData.oldText}" with "${editData.newText}"`
-              )
-              
-              // Since we already handled the edit via native command, just return
-              return `Edited the text by replacing "${editData.oldText}" with "${editData.newText}".`
-            } catch (error) {
-              console.error('Error in AI editing:', error)
-              return `Error during editing: ${error instanceof Error ? error.message : 'Unknown error'}`
-            }
-          }
-        }
-        
-        // For write command, use agent to generate and improve content
-        if (command === COMMANDS.WRITE && args) {
-          try {
-            // Let agent generate enhanced content based on context
-            const enhancedContent = await agent.invoke({
-              input: `Generate content for: ${args}. Keep your response focused on just the content to write, with minimal explanations.`,
-              chat_history: []
-            })
-            
-            // Extract just the content portion (removing any explanations)
-            const contentOnly = enhancedContent
-              .replace(/^I'll (write|generate|create) (an?|the) .+?:\n\n/i, '')
-              .replace(/^Here's (an?|the) .+?:\n\n/i, '')
-              .replace(/^Here is .+?:\n\n/i, '')
-              .trim()
-            
-            // Dispatch the event with the enhanced content
-            const writeEvent = new CustomEvent('writeCommand', {
-              detail: { content: contentOnly }
-            })
-            document.dispatchEvent(writeEvent)
-            
-            return `Content has been inserted at the cursor position.`
-          } catch (error) {
-            console.error('Error in AI content generation:', error)
-            return `Error generating content: ${error instanceof Error ? error.message : 'Unknown error'}`
-          }
-        }
-      }
-      
-      // For non-command text or unhandled commands, process with agent
-      return await agent.invoke({
-        input: commandText,
-        chat_history: []
-      })
-    } catch (error) {
-      console.error('Error executing with agent:', error)
-      return `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
-    }
-  }, [documentContext, handleCommand, COMMANDS])
+    // Use the centralized AIService.executeAgent method
+    return AIService.executeAgent(agent, message, chatHistory);
+  }, []);
   
-  return { 
+  return {
     handleCommand,
     executeWithAgent,
-    COMMANDS
-  }
-}
+    COMMANDS: CHAT_COMMANDS
+  };
+};

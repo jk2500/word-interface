@@ -1,4 +1,4 @@
-import { ChatHistoryItem } from './ai'
+import { ChatHistoryItem } from '../types/chat'
 import { debounce } from 'lodash'
 
 const TIMEOUT_MS = 10000 // 10 second timeout

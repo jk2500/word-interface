@@ -17,8 +17,8 @@ export const DocumentTitle: React.FC = () => {
     setTitle(newTitle)
     MetadataService.save({ title: newTitle })
     updateContext({
-      type: 'CONTENT_CHANGE',
-      context: { documentTitle: newTitle }
+      type: 'TITLE_CHANGE',
+      payload: { documentTitle: newTitle }
     })
   }, [updateContext])
 
