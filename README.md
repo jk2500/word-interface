@@ -1,6 +1,6 @@
 # Word Interface
 
-A modern rich text editor with AI capabilities, built with React and Slate.js.
+A modern rich text editor with AI capabilities(Yet to add), built with React and Slate.js.
 
 ## Features
 
